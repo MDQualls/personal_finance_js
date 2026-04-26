@@ -9,6 +9,7 @@ const UpdateBudgetSchema = z.object({
   amount: z.number().int().positive().optional(),
   period: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).optional(),
   rollover: z.boolean().optional(),
+  isActive: z.boolean().optional(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -37,10 +38,13 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!session) return apiError('Unauthorized', 401)
 
   try {
-    await prisma.budget.delete({ where: { id: params.id } })
+    await prisma.budget.update({
+      where: { id: params.id },
+      data: { isActive: false },
+    })
     return apiSuccess({ id: params.id })
   } catch (err) {
     console.error('[budgets:DELETE]', err)
-    return apiError('Failed to delete budget', 500)
+    return apiError('Failed to archive budget', 500)
   }
 }

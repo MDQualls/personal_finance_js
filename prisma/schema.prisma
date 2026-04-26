@@ -92,14 +92,15 @@ model Transaction {
 }
 
 model Budget {
-  id         String      @id @default(cuid())
+  id         String       @id @default(cuid())
   categoryId String
-  amount     Int         // cents
+  amount     Int          // cents
   period     BudgetPeriod @default(MONTHLY)
   startDate  DateTime
-  rollover   Boolean     @default(false)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  rollover   Boolean      @default(false)
+  isActive   Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   category Category @relation(fields: [categoryId], references: [id])
 }

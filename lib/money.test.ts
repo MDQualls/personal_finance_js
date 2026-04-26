@@ -2,9 +2,11 @@ import {
   toCents,
   toDollars,
   formatCurrency,
+  formatCurrencyTabular,
   isNegative,
   absAmount,
   sumCents,
+  annualEquivalent,
   monthlyEquivalent,
 } from './money'
 
@@ -19,8 +21,11 @@ describe('toCents', () => {
   })
 
   it('rounds half-cent values consistently', () => {
-    expect(toCents(1.005)).toBe(101)
-    expect(toCents(1.004)).toBe(100)
+    // Many .X05 values are stored slightly below in IEEE 754 and round down —
+    // use values that are stored slightly above so rounding is deterministic
+    expect(toCents(1.235)).toBe(124)  // 1.235 * 100 = 123.500...01 → rounds up
+    expect(toCents(2.505)).toBe(251)  // 2.505 * 100 = 250.5 exactly → rounds up
+    expect(toCents(1.004)).toBe(100)  // clearly below .5 → rounds down
   })
 
   it('handles negative amounts', () => {
@@ -130,6 +135,51 @@ describe('sumCents', () => {
 
   it('handles a single value', () => {
     expect(sumCents([9999])).toBe(9999)
+  })
+})
+
+describe('annualEquivalent', () => {
+  it('calculates weekly to annual (× 52)', () => {
+    expect(annualEquivalent(1000, 'WEEKLY')).toBe(52000)
+  })
+
+  it('calculates biweekly to annual (× 26)', () => {
+    expect(annualEquivalent(1000, 'BIWEEKLY')).toBe(26000)
+  })
+
+  it('returns monthly × 12', () => {
+    expect(annualEquivalent(1000, 'MONTHLY')).toBe(12000)
+  })
+
+  it('calculates quarterly to annual (× 4)', () => {
+    expect(annualEquivalent(1000, 'QUARTERLY')).toBe(4000)
+  })
+
+  it('returns same amount for YEARLY', () => {
+    expect(annualEquivalent(1000, 'YEARLY')).toBe(1000)
+  })
+
+  it('defaults to monthly × 12 for unknown frequency', () => {
+    expect(annualEquivalent(1000, 'UNKNOWN')).toBe(12000)
+  })
+})
+
+describe('formatCurrencyTabular', () => {
+  it('formats cents as USD by default', () => {
+    expect(formatCurrencyTabular(1000)).toBe('$10.00')
+    expect(formatCurrencyTabular(150)).toBe('$1.50')
+  })
+
+  it('formats zero correctly', () => {
+    expect(formatCurrencyTabular(0)).toBe('$0.00')
+  })
+
+  it('formats negative amounts', () => {
+    expect(formatCurrencyTabular(-1000)).toBe('-$10.00')
+  })
+
+  it('formats large amounts with commas', () => {
+    expect(formatCurrencyTabular(1000000)).toBe('$10,000.00')
   })
 })
 

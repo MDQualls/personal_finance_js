@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { toCents } from '@/lib/money'
+import { toCents, toDollars } from '@/lib/money'
 import type { Account, Category } from '@/types'
 
 const schema = z.object({
@@ -22,13 +22,26 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+type InitialValues = {
+  id: string
+  accountId: string
+  amount: number
+  date: Date
+  categoryId: string
+  description: string
+  notes: string | null
+}
+
 interface TransactionFormProps {
   accounts: Account[]
   categories: (Category & { children: Category[] })[]
+  initialValues?: InitialValues
   onSuccess?: () => void
 }
 
-export function TransactionForm({ accounts, categories, onSuccess }: TransactionFormProps) {
+export function TransactionForm({ accounts, categories, initialValues, onSuccess }: TransactionFormProps) {
+  const isEditing = !!initialValues
+
   const {
     register,
     handleSubmit,
@@ -36,26 +49,39 @@ export function TransactionForm({ accounts, categories, onSuccess }: Transaction
     setError,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { date: new Date().toISOString().slice(0, 10) },
+    defaultValues: initialValues
+      ? {
+          accountId: initialValues.accountId,
+          amount: toDollars(initialValues.amount).toFixed(2),
+          date: new Date(initialValues.date).toISOString().slice(0, 10),
+          categoryId: initialValues.categoryId,
+          description: initialValues.description,
+          notes: initialValues.notes ?? '',
+        }
+      : { date: new Date().toISOString().slice(0, 10) },
   })
 
   async function onSubmit(values: FormValues) {
-    const amount = parseFloat(values.amount)
-    const res = await fetch('/api/transactions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        accountId: values.accountId,
-        amount: toCents(amount),
-        date: new Date(values.date).toISOString(),
-        categoryId: values.categoryId,
-        description: values.description,
-        notes: values.notes || undefined,
-      }),
-    })
+    const payload = {
+      accountId: values.accountId,
+      amount: toCents(parseFloat(values.amount)),
+      date: new Date(values.date).toISOString(),
+      categoryId: values.categoryId,
+      description: values.description,
+      notes: values.notes || undefined,
+    }
+
+    const res = await fetch(
+      isEditing ? `/api/transactions/${initialValues.id}` : '/api/transactions',
+      {
+        method: isEditing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    )
 
     if (!res.ok) {
-      setError('root', { message: 'Failed to save transaction.' })
+      setError('root', { message: `Failed to ${isEditing ? 'update' : 'save'} transaction.` })
       return
     }
 
@@ -134,7 +160,9 @@ export function TransactionForm({ accounts, categories, onSuccess }: Transaction
       </div>
 
       <div className="flex justify-end pt-2">
-        <Button type="submit" loading={isSubmitting}>Save Transaction</Button>
+        <Button type="submit" loading={isSubmitting}>
+          {isEditing ? 'Save Changes' : 'Save Transaction'}
+        </Button>
       </div>
     </form>
   )

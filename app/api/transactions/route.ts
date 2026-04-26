@@ -26,13 +26,14 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search') ?? undefined
   const from = searchParams.get('from') ?? undefined
   const to = searchParams.get('to') ?? undefined
+  const showDeleted = searchParams.get('showDeleted') === 'true'
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
   const skip = (page - 1) * limit
 
   try {
     const where = {
-      deletedAt: null,
+      deletedAt: showDeleted ? { not: null } : null,
       ...(accountId ? { accountId } : {}),
       ...(categoryId ? { categoryId } : {}),
       ...(tagId ? { tags: { some: { id: tagId } } } : {}),
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
       prisma.transaction.findMany({
         where,
         include: { category: true, tags: true },
-        orderBy: { date: 'desc' },
+        orderBy: showDeleted ? { deletedAt: 'desc' } : { date: 'desc' },
         skip,
         take: limit,
       }),

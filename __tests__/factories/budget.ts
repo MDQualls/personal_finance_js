@@ -11,6 +11,7 @@ export function mockBudget(overrides: Partial<Budget> = {}): Budget {
     period: 'MONTHLY',
     startDate: new Date('2026-04-01T00:00:00Z'),
     rollover: false,
+    isActive: true,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     ...overrides,

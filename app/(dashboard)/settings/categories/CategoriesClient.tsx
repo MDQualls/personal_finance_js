@@ -17,7 +17,7 @@ type Category = {
   icon: string
   isIncome: boolean
   isSystem: boolean
-  children: Category[]
+  children?: Category[]
 }
 
 interface CategoriesClientProps {
@@ -78,9 +78,9 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
                 {cat.isSystem && <Badge variant="default">System</Badge>}
                 {cat.isIncome && <Badge variant="active">Income</Badge>}
               </div>
-              {cat.children.length > 0 && (
+              {(cat.children?.length ?? 0) > 0 && (
                 <div className="border-t border-[#e8ecf0] divide-y divide-[#e8ecf0]">
-                  {cat.children.map((sub) => (
+                  {cat.children?.map((sub) => (
                     <div key={sub.id} className="flex items-center gap-3 pl-10 pr-5 py-2.5">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sub.color }} />
                       <p className="text-[13px] text-[#6b7a8d]">{sub.name}</p>

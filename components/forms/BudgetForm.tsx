@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { toCents } from '@/lib/money'
+import { toCents, toDollars } from '@/lib/money'
 import type { Category } from '@/types'
 
 const schema = z.object({
@@ -27,12 +27,24 @@ const PERIOD_OPTIONS = [
   { value: 'YEARLY', label: 'Yearly' },
 ]
 
+type InitialValues = {
+  id: string
+  amount: number
+  period: string
+  rollover: boolean
+  categoryId: string
+  category: { id: string; name: string; color: string }
+}
+
 interface BudgetFormProps {
   categories: Category[]
+  initialValues?: InitialValues
   onSuccess?: () => void
 }
 
-export function BudgetForm({ categories, onSuccess }: BudgetFormProps) {
+export function BudgetForm({ categories, initialValues, onSuccess }: BudgetFormProps) {
+  const isEditing = !!initialValues
+
   const {
     register,
     handleSubmit,
@@ -40,24 +52,33 @@ export function BudgetForm({ categories, onSuccess }: BudgetFormProps) {
     setError,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { period: 'MONTHLY' },
+    defaultValues: initialValues
+      ? {
+          categoryId: initialValues.categoryId,
+          amount: toDollars(initialValues.amount).toFixed(2),
+          period: initialValues.period as FormValues['period'],
+          rollover: initialValues.rollover,
+        }
+      : { period: 'MONTHLY' },
   })
 
   async function onSubmit(values: FormValues) {
-    const res = await fetch('/api/budgets', {
-      method: 'POST',
+    const payload = {
+      categoryId: values.categoryId,
+      amount: toCents(parseFloat(values.amount)),
+      period: values.period,
+      rollover: values.rollover ?? false,
+      ...(!isEditing ? { startDate: new Date().toISOString() } : {}),
+    }
+
+    const res = await fetch(isEditing ? `/api/budgets/${initialValues.id}` : '/api/budgets', {
+      method: isEditing ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        categoryId: values.categoryId,
-        amount: toCents(parseFloat(values.amount)),
-        period: values.period,
-        startDate: new Date().toISOString(),
-        rollover: values.rollover ?? false,
-      }),
+      body: JSON.stringify(payload),
     })
 
     if (!res.ok) {
-      setError('root', { message: 'Failed to create budget.' })
+      setError('root', { message: `Failed to ${isEditing ? 'update' : 'create'} budget.` })
       return
     }
 
@@ -105,7 +126,9 @@ export function BudgetForm({ categories, onSuccess }: BudgetFormProps) {
       </label>
 
       <div className="flex justify-end pt-2">
-        <Button type="submit" loading={isSubmitting}>Create Budget</Button>
+        <Button type="submit" loading={isSubmitting}>
+          {isEditing ? 'Save Changes' : 'Create Budget'}
+        </Button>
       </div>
     </form>
   )

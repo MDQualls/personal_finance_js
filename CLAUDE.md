@@ -2,6 +2,13 @@
 
 This file is the authoritative guide for Claude Code working in this repository. Read it fully before making any changes.
 
+**Also read at the start of every session:**
+- `BACKLOG.md` — known bugs, missing features, and tech debt in priority order
+- `RECURRING.md` — full spec for recurring transactions (required for P2-1)
+
+**Read only when instructed (future phases):**
+- `PLAID.md` — Plaid bank integration spec — do not read until P4-1 is explicitly started
+
 ---
 
 ## Project Overview
@@ -91,9 +98,14 @@ finance-tracker/
   │   ├── prisma.ts             # Prisma singleton client
   │   ├── anthropic.ts          # Anthropic client singleton
   │   ├── auth.ts               # NextAuth config
-  │   ├── money.ts              # Currency formatting and cents utilities
-  │   ├── dates.ts              # Date helpers (always use date-fns)
-  │   └── api.ts                # Shared API response helpers
+  │   ├── money.ts              # Currency formatting and cents utilities (toCents/formatCurrency/annualEquivalent)
+  │   ├── dates.ts              # Date helpers — always use date-fns via these wrappers
+  │   ├── api.ts                # Shared API response helpers (apiSuccess / apiError)
+  │   ├── alerts.ts             # In-app alert generators (budget thresholds, due dates, large transactions)
+  │   ├── normalize.ts          # Merchant name normalization (pattern → display name)
+  │   ├── projection.ts         # Projected balance engine (recurring rules + subscriptions → daily balances)
+  │   ├── rateLimit.ts          # In-memory rate limiting for auth and insights endpoints
+  │   └── reports.ts            # Aggregation query helpers for spending, trends, and net worth reports
   ├── prisma/
   │   ├── schema.prisma
   │   ├── migrations/

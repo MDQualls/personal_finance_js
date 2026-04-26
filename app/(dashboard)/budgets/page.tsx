@@ -13,7 +13,10 @@ export default async function BudgetsPage() {
   const now = new Date()
 
   const [budgets, categories] = await Promise.all([
-    prisma.budget.findMany({ include: { category: true }, orderBy: { category: { name: 'asc' } } }),
+    prisma.budget.findMany({
+      include: { category: true },
+      orderBy: [{ isActive: 'desc' }, { category: { name: 'asc' } }],
+    }),
     prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
   ])
 

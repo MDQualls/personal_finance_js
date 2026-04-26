@@ -1,10 +1,5 @@
 import type { Session } from 'next-auth'
-
-const mockGetServerSession = jest.fn()
-
-jest.mock('next-auth', () => ({
-  getServerSession: (...args: unknown[]) => mockGetServerSession(...args),
-}))
+import { getServerSession } from 'next-auth'
 
 const DEFAULT_SESSION: Session = {
   user: { id: '1', name: 'testuser', email: null },
@@ -12,9 +7,9 @@ const DEFAULT_SESSION: Session = {
 }
 
 export function mockSession(session: Partial<Session> = {}) {
-  mockGetServerSession.mockResolvedValue({ ...DEFAULT_SESSION, ...session })
+  ;(getServerSession as jest.Mock).mockResolvedValue({ ...DEFAULT_SESSION, ...session })
 }
 
 export function noSession() {
-  mockGetServerSession.mockResolvedValue(null)
+  ;(getServerSession as jest.Mock).mockResolvedValue(null)
 }

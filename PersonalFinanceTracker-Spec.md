@@ -1,5 +1,5 @@
 # Personal Finance Tracker — Technical Specification
-**Version 1.0 | April 2026**
+**Version 1.1 | April 2026**
 
 ---
 
@@ -55,6 +55,8 @@ finance-tracker/
 - `NEXTAUTH_URL` — e.g. `http://localhost:3000`
 - `ANTHROPIC_API_KEY` — Claude API key for AI insights
 - `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` — DB credentials
+- `PLAID_CLIENT_ID` / `PLAID_SECRET` / `PLAID_ENV` — Plaid API credentials (Phase 9)
+- `ENCRYPTION_KEY` — AES-256-GCM key for encrypting Plaid access tokens at rest (Phase 9)
 
 ---
 
@@ -78,14 +80,16 @@ All monetary values are stored as integers (cents) to avoid floating-point round
 
 | Model | Key Fields | Purpose |
 |---|---|---|
-| Account | id, name, type, balance (cents), currency, isActive | Checking, savings, credit card, loan, asset |
-| Transaction | id, accountId, amount (cents), date, categoryId, description, notes, tags[] | Every debit/credit movement |
+| Account | id, name, type, balance (cents), currency, isActive, plaidManaged | Checking, savings, credit card, loan, asset |
+| Transaction | id, accountId, amount (cents), date, categoryId, description, notes, tags[], plaidTransactionId | Every debit/credit movement |
 | Category | id, name, parentId, color, icon, isSystem | Hierarchical spend categories |
 | Budget | id, categoryId, amount (cents), period, startDate | Spending limits per category |
 | Subscription | id, name, amount (cents), frequency, nextDueDate, categoryId, notes, isActive | Recurring services and bills |
-| RecurringRule | id, name, amount (cents), frequency, accountId, categoryId, nextDate, type | Predicted recurring cash flows |
+| RecurringRule | id, name, amount (cents), frequency, accountId, categoryId, nextDate, type, isActive, autoPost, notes, lastPostedAt | Scheduled auto-posting transactions |
 | Tag | id, name, color | Free-form labels for transactions |
 | AIInsight | id, prompt, response, generatedAt, period | Cached AI analysis results |
+| PlaidItem | id, accessToken (encrypted), itemId, institutionId, institutionName, lastSyncedAt, lastCursor, status | Connected bank institution |
+| PlaidAccount | id, plaidItemId, plaidAccountId, accountId, name, mask, type, subtype | Plaid account linked to local account |
 
 ### 4.2 Enums
 
@@ -241,6 +245,17 @@ All routes are Next.js App Router Route Handlers under `/app/api/`. All endpoint
 | GET | /api/tags | List tags |
 | GET | /api/rules | List auto-categorization rules |
 | POST | /api/rules | Create rule |
+| GET | /api/recurring | List recurring rules (filter: type) |
+| POST | /api/recurring | Create recurring rule |
+| PATCH | /api/recurring/[id] | Update recurring rule |
+| DELETE | /api/recurring/[id] | Deactivate recurring rule (soft) |
+| POST | /api/recurring/post-due | Trigger auto-posting engine for all due rules |
+| POST | /api/recurring/[id]/post-now | Manually post a single rule immediately |
+| POST | /api/plaid/link-token | Create a Plaid Link session |
+| POST | /api/plaid/exchange-token | Exchange public_token for encrypted access_token |
+| POST | /api/plaid/sync | Pull and upsert transactions from Plaid |
+| GET | /api/plaid/items | List connected institutions |
+| DELETE | /api/plaid/items/[id] | Disconnect an institution |
 
 ---
 
@@ -255,6 +270,7 @@ All routes are Next.js App Router Route Handlers under `/app/api/`. All endpoint
 | /transactions/import | CSV import wizard |
 | /budgets | Budget management and progress view |
 | /subscriptions | Subscription tracker and monthly total |
+| /recurring | Recurring transactions — income and expense rules, auto-post management |
 | /calendar | Recurring bill calendar (30/60/90 day view) |
 | /reports | Reporting hub: spending, trends, income vs. expense, net worth |
 | /reports/insights | AI Insights: generate and view Claude analysis |
@@ -262,6 +278,8 @@ All routes are Next.js App Router Route Handlers under `/app/api/`. All endpoint
 | /settings/categories | Manage categories and subcategories |
 | /settings/tags | Manage tags |
 | /settings/rules | Auto-categorization and merchant normalization rules |
+| /settings/connections | Connected bank institutions, sync status, disconnect |
+| /settings/connections/[id] | Linked accounts for an institution, account mapping |
 
 ---
 
@@ -272,11 +290,13 @@ All routes are Next.js App Router Route Handlers under `/app/api/`. All endpoint
 | 1 | Foundation | Docker Compose, Postgres, Prisma schema, NextAuth, base layout |
 | 2 | Core Data | Accounts, Categories, Transactions CRUD, CSV import |
 | 3 | Budgets & Subscriptions | Budget engine, subscription tracker, due-date alerts |
-| 4 | Reports | Recharts dashboards: spending, trends, income vs. expense, net worth |
-| 5 | Cash Flow | Recurring rules engine, projected balance chart |
-| 6 | AI Insights | Claude API integration, prompt design, insight UI |
-| 7 | Polish | Tags, rules, merchant normalization, notification badges, mobile responsiveness |
+| 4 | Recurring Transactions | Schema migration, auto-posting engine, CRUD routes, /recurring UI |
+| 5 | Reports | Recharts dashboards: spending, trends, income vs. expense, net worth |
+| 6 | Cash Flow | Projected balance chart (RecurringRule engine already feeds this) |
+| 7 | AI Insights | Claude API integration, prompt design, insight UI |
+| 8 | Polish | Tags, rules, merchant normalization, notification badges, mobile responsiveness |
+| 9 | Plaid Integration | Bank account connectivity — see PLAID.md |
 
 ---
 
-*End of Specification — v1.0*
+*End of Specification — v1.1*

@@ -111,13 +111,16 @@ enum PlaidItemStatus {
 
 Also add to the existing `Account` model:
 ```prisma
-plaidAccount  PlaidAccount?  // reverse relation
+plaidManaged  Boolean       @default(false)  // true = Plaid owns transaction posting for this account
+plaidAccount  PlaidAccount?                  // reverse relation
 ```
 
 And add to the existing `Transaction` model:
 ```prisma
 plaidTransactionId  String?  @unique  // Plaid's transaction ID — used for dedup
 ```
+
+> **Critical:** The `plaidManaged` flag is the reconciliation guard. When `true`, the recurring engine will never auto-post transactions to this account. Plaid is the sole source of transaction truth for any account where this flag is set. See the Reconciliation section below.
 
 ---
 
@@ -492,6 +495,107 @@ npm install react-plaid-link
 
 ---
 
+## Reconciliation — Preventing Double-Entry
+
+This is the most important operational concern when mixing Plaid with recurring rules. Without a guard, a recurring rule set to `autoPost = true` and a Plaid sync will both create a transaction for the same real charge — different descriptions, same date and amount — and your balance, spending reports, and net worth will be wrong.
+
+### The Guard: `plaidManaged`
+
+When an `Account` has `plaidManaged = true`, Plaid is the sole source of transaction truth for that account. The recurring engine must never auto-post to it.
+
+This is enforced in `lib/recurringEngine.ts` (see RECURRING.md) via a filter on the database query:
+
+```typescript
+const dueRules = await prisma.recurringRule.findMany({
+  where: {
+    isActive: true,
+    autoPost: true,
+    nextDate: { lte: now },
+    account: { plaidManaged: false },   // never post to Plaid-managed accounts
+  },
+  include: { account: true },
+})
+```
+
+This is not optional. This filter must be present every time the engine runs.
+
+### Setting `plaidManaged` on Account Creation via Plaid
+
+When the exchange-token route creates or links a local `Account` from a Plaid account, set `plaidManaged = true` automatically:
+
+```typescript
+// In exchange-token route, when creating a new Account from a PlaidAccount
+await prisma.account.create({
+  data: {
+    name: plaidAccount.name,
+    type: mapPlaidAccountType(plaidAccount.type, plaidAccount.subtype),
+    balance: 0,           // will be updated on first sync
+    plaidManaged: true,   // Plaid owns this account's transactions
+  },
+})
+```
+
+### What This Means in Practice
+
+| Account type | `plaidManaged` | Who posts transactions |
+|---|---|---|
+| Checking (connected to Plaid) | `true` | Plaid sync only |
+| Savings (connected to Plaid) | `true` | Plaid sync only |
+| Credit card (connected to Plaid) | `true` | Plaid sync only |
+| Cash / wallet (manual) | `false` | Recurring engine + manual entry |
+| Credit union Plaid can't reach | `false` | CSV import + manual entry |
+| Loan (manual tracking only) | `false` | Recurring engine |
+
+### Recurring Rules on Plaid-Managed Accounts
+
+Recurring rules linked to a Plaid-managed account should have `autoPost = false`. They still contribute to cash flow projections — which is valuable — but they will never create duplicate transactions. The UI should warn the user when they attempt to create a recurring rule with `autoPost = true` on a Plaid-managed account:
+
+```
+⚠ This account is managed by Plaid. Auto-post has been disabled to prevent
+duplicate transactions. This rule will still appear in cash flow projections.
+```
+
+Enforce this in the API route:
+
+```typescript
+// In POST /api/recurring — after validating the schema
+const account = await prisma.account.findUnique({ where: { id: body.data.accountId } })
+if (account?.plaidManaged && body.data.autoPost) {
+  return apiError(
+    'Auto-post is not allowed on Plaid-managed accounts. Set autoPost to false.',
+    422
+  )
+}
+```
+
+### Balance Sync
+
+Plaid also returns current balances on each sync. Update the linked `Account.balance` from Plaid's balance data at the end of each sync run:
+
+```typescript
+// At the end of POST /api/plaid/sync, after processing transactions
+for (const plaidAcct of item.accounts) {
+  if (!plaidAcct.accountId) continue
+
+  const balanceResponse = await plaidClient.accountsBalanceGet({
+    access_token: accessToken,
+    options: { account_ids: [plaidAcct.plaidAccountId] },
+  })
+
+  const balance = balanceResponse.data.accounts[0]?.balances.current
+  if (balance !== undefined && balance !== null) {
+    await prisma.account.update({
+      where: { id: plaidAcct.accountId },
+      data: { balance: toCents(balance) },
+    })
+  }
+}
+```
+
+This keeps your account balances authoritative from the bank rather than computed from transaction history, which avoids drift from pending transactions, fees, and interest.
+
+---
+
 ## Security
 
 ### Access Token Encryption
@@ -625,14 +729,16 @@ Add as **Phase 8** after the core app is complete and stable:
 
 | Step | Task |
 |---|---|
-| 8.1 | Add Prisma models, run migration |
-| 8.2 | Implement `lib/plaid.ts` and `lib/crypto.ts` |
-| 8.3 | Build API routes: link-token, exchange-token, sync, items |
-| 8.4 | Build `ConnectAccountButton` component and connections settings page |
-| 8.5 | Implement category mapping and amount sign convention |
-| 8.6 | Test end-to-end in Sandbox environment with Plaid test credentials |
-| 8.7 | Switch `PLAID_ENV` to `development`, connect a real institution |
-| 8.8 | (Optional) Add webhook support for real-time sync |
+| 9.1 | Add Prisma models + `plaidManaged` flag to Account, run migration |
+| 9.2 | Implement `lib/plaid.ts` and `lib/crypto.ts` |
+| 9.3 | Build API routes: link-token, exchange-token, sync, items |
+| 9.4 | Add `plaidManaged` guard to recurring engine (see RECURRING.md) |
+| 9.5 | Add `autoPost` validation in POST /api/recurring for Plaid-managed accounts |
+| 9.6 | Build `ConnectAccountButton` component and connections settings page |
+| 9.7 | Implement category mapping, amount sign convention, and balance sync |
+| 9.8 | Test end-to-end in Sandbox environment with Plaid test credentials |
+| 9.9 | Switch `PLAID_ENV` to `development`, connect a real institution |
+| 9.10 | (Optional) Add webhook support for real-time sync |
 
 ---
 
@@ -649,4 +755,4 @@ These simulate a connected institution with fake transactions. Use them to test 
 
 ---
 
-*Plaid Integration Spec — v1.0 | Personal Finance Tracker*
+*Plaid Integration Spec — v1.1 | Personal Finance Tracker*

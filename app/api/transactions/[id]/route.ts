@@ -13,6 +13,7 @@ const UpdateTransactionSchema = z.object({
   description: z.string().min(1).max(255).optional(),
   notes: z.string().max(1000).nullable().optional(),
   tagIds: z.array(z.string().cuid()).optional(),
+  restore: z.boolean().optional(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -23,18 +24,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const result = UpdateTransactionSchema.safeParse(body)
   if (!result.success) return apiError(result.error.format(), 400)
 
-  const { tagIds, date, ...rest } = result.data
+  const { tagIds, date, restore, ...rest } = result.data
 
   try {
     const existing = await prisma.transaction.findUnique({ where: { id: params.id } })
     if (!existing) return apiError('Transaction not found', 404)
-    if (existing.deletedAt) return apiError('Transaction has been deleted', 410)
+    if (existing.deletedAt && !restore) return apiError('Transaction has been deleted', 410)
 
     const transaction = await prisma.transaction.update({
       where: { id: params.id },
       data: {
         ...rest,
         ...(date ? { date: new Date(date) } : {}),
+        ...(restore ? { deletedAt: null } : {}),
         ...(tagIds !== undefined
           ? { tags: { set: tagIds.map((id) => ({ id })) } }
           : {}),

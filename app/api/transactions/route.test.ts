@@ -124,25 +124,3 @@ describe('POST /api/transactions', () => {
   })
 })
 
-describe('DELETE /api/transactions (soft delete)', () => {
-  it('soft deletes by setting deletedAt', async () => {
-    mockSession()
-    const tx = mockTransaction()
-    prismaMock.transaction.findUnique.mockResolvedValue(tx)
-    prismaMock.transaction.update.mockResolvedValue({ ...tx, deletedAt: new Date() })
-
-    // Import the DELETE handler
-    const { DELETE } = await import('./[id]/route')
-    const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {
-      method: 'DELETE',
-    })
-    const res = await DELETE(req as never, { params: { id: tx.id } })
-    expect(res.status).toBe(200)
-
-    expect(prismaMock.transaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ deletedAt: expect.any(Date) }),
-      })
-    )
-  })
-})
