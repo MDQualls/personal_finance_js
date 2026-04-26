@@ -1,0 +1,173 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  LOAN
+  INVESTMENT
+  ASSET
+  LIABILITY
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum Frequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum RecurringType {
+  INCOME
+  EXPENSE
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model Account {
+  id        String      @id @default(cuid())
+  name      String
+  type      AccountType
+  balance   Int         @default(0) // cents
+  currency  String      @default("USD")
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+}
+
+model Category {
+  id       String  @id @default(cuid())
+  name     String
+  parentId String?
+  color    String  @default("#6b7a8d")
+  icon     String  @default("tag")
+  isIncome Boolean @default(false)
+  isSystem Boolean @default(false)
+  isActive Boolean @default(true)
+
+  parent       Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children     Category[]     @relation("CategoryHierarchy")
+  transactions Transaction[]
+  budgets      Budget[]
+  subscriptions Subscription[]
+  recurringRules RecurringRule[]
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  accountId   String
+  amount      Int       // cents; positive = in, negative = out
+  date        DateTime
+  categoryId  String
+  description String
+  notes       String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  account  Account  @relation(fields: [accountId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+  tags     Tag[]    @relation("TransactionTags")
+}
+
+model Budget {
+  id         String      @id @default(cuid())
+  categoryId String
+  amount     Int         // cents
+  period     BudgetPeriod @default(MONTHLY)
+  startDate  DateTime
+  rollover   Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id])
+}
+
+model Subscription {
+  id          String    @id @default(cuid())
+  name        String
+  amount      Int       // cents
+  frequency   Frequency @default(MONTHLY)
+  nextDueDate DateTime
+  categoryId  String
+  notes       String?
+  isActive    Boolean   @default(true)
+  alertDays   Int       @default(3)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id])
+}
+
+model RecurringRule {
+  id         String        @id @default(cuid())
+  name       String
+  amount     Int           // cents
+  frequency  Frequency
+  accountId  String
+  categoryId String
+  nextDate   DateTime
+  type       RecurringType
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  account  Account  @relation(fields: [accountId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  color String @default("#6b7a8d")
+
+  transactions Transaction[] @relation("TransactionTags")
+}
+
+model AIInsight {
+  id          String   @id @default(cuid())
+  period      String   @unique // e.g. "2026-04"
+  prompt      String
+  response    Json
+  generatedAt DateTime @default(now())
+}
+
+model AutoRule {
+  id         String   @id @default(cuid())
+  pattern    String   // substring or regex pattern
+  isRegex    Boolean  @default(false)
+  categoryId String
+  tagId      String?
+  priority   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model MerchantRule {
+  id          String   @id @default(cuid())
+  pattern     String
+  isRegex     Boolean  @default(false)
+  displayName String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

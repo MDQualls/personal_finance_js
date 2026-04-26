@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-sidebar-bg: #1a2332;
+  --color-sidebar-text: #8a9bb0;
+  --color-sidebar-active-bg: #00b89c;
+  --color-sidebar-active-text: #ffffff;
+  --color-bg: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f8fafc;
+  --color-text-primary: #1a2332;
+  --color-text-secondary: #6b7a8d;
+  --color-text-disabled: #b0bac6;
+  --color-accent: #00b89c;
+  --color-accent-hover: #009e87;
+  --color-accent-subtle: #e6f7f5;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-danger-subtle: #fef2f2;
+  --color-border: #e8ecf0;
+  --color-border-focus: #00b89c;
+  --color-budget-ok: #22c55e;
+  --color-budget-warn: #f59e0b;
+  --color-budget-over: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'DM Sans', sans-serif;
+}
+
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.amount-positive {
+  color: var(--color-success);
+}
+
+.amount-negative {
+  color: var(--color-text-primary);
+}
