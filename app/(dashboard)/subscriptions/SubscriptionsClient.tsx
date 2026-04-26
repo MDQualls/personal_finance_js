@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Repeat, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Repeat, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -34,6 +34,8 @@ const FREQ_LABELS: Record<string, string> = {
   YEARLY: 'Yearly',
 }
 
+type FilterTab = 'active' | 'cancelled'
+
 interface Props {
   subscriptions: Subscription[]
   categories: Category[]
@@ -44,77 +46,125 @@ interface Props {
 export function SubscriptionsClient({ subscriptions, categories, totalMonthly, totalAnnual }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<Subscription | null>(null)
+  const [tab, setTab] = useState<FilterTab>('active')
 
-  async function handleDelete(id: string, name: string) {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return
+  const visible = subscriptions.filter((s) => (tab === 'active' ? s.isActive : !s.isActive))
+  const cancelledCount = subscriptions.filter((s) => !s.isActive).length
+
+  async function handleCancel(id: string, name: string) {
+    if (!confirm(`Cancel "${name}"? It will be moved to cancelled subscriptions.`)) return
     await fetch(`/api/subscriptions/${id}`, { method: 'DELETE' })
     window.location.reload()
   }
 
-  function handleEdit(sub: Subscription) {
-    setEditing(sub)
+  async function handleReactivate(id: string) {
+    await fetch(`/api/subscriptions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: true }),
+    })
+    window.location.reload()
   }
 
   return (
     <div className="space-y-5">
-      {/* Totals banner */}
+      {/* Totals — active only */}
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">Monthly Total</p>
           <p className="text-[24px] font-semibold font-tabular text-[#1a2332] mt-1">
             {formatCurrency(totalMonthly)}
           </p>
+          <p className="text-[12px] text-[#6b7a8d] mt-1">Active subscriptions only</p>
         </Card>
         <Card>
           <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">Annual Total</p>
           <p className="text-[24px] font-semibold font-tabular text-[#1a2332] mt-1">
             {formatCurrency(totalAnnual)}
           </p>
+          <p className="text-[12px] text-[#6b7a8d] mt-1">Active subscriptions only</p>
         </Card>
       </div>
 
-      <div className="flex justify-end">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        {/* Filter tabs */}
+        <div className="flex items-center gap-1 p-1 bg-[#f4f6f9] rounded-[8px]">
+          <button
+            onClick={() => setTab('active')}
+            className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium font-heading transition-colors ${
+              tab === 'active'
+                ? 'bg-white text-[#1a2332] shadow-sm'
+                : 'text-[#6b7a8d] hover:text-[#1a2332]'
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setTab('cancelled')}
+            className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium font-heading transition-colors ${
+              tab === 'cancelled'
+                ? 'bg-white text-[#1a2332] shadow-sm'
+                : 'text-[#6b7a8d] hover:text-[#1a2332]'
+            }`}
+          >
+            Cancelled
+            {cancelledCount > 0 && (
+              <span className="ml-1.5 text-[11px] bg-[#e8ecf0] text-[#6b7a8d] px-1.5 py-0.5 rounded-[99px]">
+                {cancelledCount}
+              </span>
+            )}
+          </button>
+        </div>
+
         <Button onClick={() => setShowAdd(true)}>
           <Plus size={16} strokeWidth={1.5} />
           Add Subscription
         </Button>
       </div>
 
-      {subscriptions.length === 0 ? (
+      {/* List */}
+      {visible.length === 0 ? (
         <Card>
           <EmptyState
             icon={Repeat}
-            title="No subscriptions tracked"
-            description="Add your recurring services and bills to track and project their costs."
-            action={{ label: 'Add Subscription', onClick: () => setShowAdd(true) }}
+            title={tab === 'active' ? 'No active subscriptions' : 'No cancelled subscriptions'}
+            description={
+              tab === 'active'
+                ? 'Add your recurring services and bills to track and project their costs.'
+                : 'Cancelled subscriptions will appear here.'
+            }
+            action={tab === 'active' ? { label: 'Add Subscription', onClick: () => setShowAdd(true) } : undefined}
           />
         </Card>
       ) : (
         <Card padding={false}>
           <div className="divide-y divide-[#e8ecf0]">
-            {subscriptions.map((sub) => (
+            {visible.map((sub) => (
               <div key={sub.id} className="group flex items-center justify-between px-5 py-4">
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-8 h-8 rounded-[8px] flex-shrink-0"
+                    className={`w-8 h-8 rounded-[8px] flex-shrink-0 ${!sub.isActive ? 'opacity-40' : ''}`}
                     style={{ backgroundColor: sub.category.color }}
                   />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-medium text-[#1a2332]">{sub.name}</p>
+                      <p className={`text-[14px] font-medium ${sub.isActive ? 'text-[#1a2332]' : 'text-[#6b7a8d]'}`}>
+                        {sub.name}
+                      </p>
                       <Badge variant={sub.isActive ? 'active' : 'cancelled'}>
                         {sub.isActive ? 'Active' : 'Cancelled'}
                       </Badge>
                     </div>
                     <p className="text-[12px] text-[#6b7a8d] mt-0.5">
-                      {FREQ_LABELS[sub.frequency]} · Due {formatDisplay(sub.nextDueDate)}
+                      {FREQ_LABELS[sub.frequency]} · {sub.isActive ? 'Due' : 'Was due'} {formatDisplay(sub.nextDueDate)}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-[14px] font-semibold font-tabular text-[#1a2332]">
+                    <p className={`text-[14px] font-semibold font-tabular ${sub.isActive ? 'text-[#1a2332]' : 'text-[#6b7a8d]'}`}>
                       {formatCurrency(sub.amount)}
                     </p>
                     {sub.frequency !== 'MONTHLY' && (
@@ -125,18 +175,33 @@ export function SubscriptionsClient({ subscriptions, categories, totalMonthly, t
                   </div>
 
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleEdit(sub)}
-                      className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#1a2332] hover:bg-[#f4f6f9] transition-colors"
-                    >
-                      <Pencil size={14} strokeWidth={1.5} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(sub.id, sub.name)}
-                      className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#ef4444] hover:bg-[#fef2f2] transition-colors"
-                    >
-                      <Trash2 size={14} strokeWidth={1.5} />
-                    </button>
+                    {sub.isActive ? (
+                      <>
+                        <button
+                          onClick={() => setEditing(sub)}
+                          className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#1a2332] hover:bg-[#f4f6f9] transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil size={14} strokeWidth={1.5} />
+                        </button>
+                        <button
+                          onClick={() => handleCancel(sub.id, sub.name)}
+                          className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#ef4444] hover:bg-[#fef2f2] transition-colors"
+                          title="Cancel subscription"
+                        >
+                          <Trash2 size={14} strokeWidth={1.5} />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => handleReactivate(sub.id)}
+                        className="h-7 flex items-center gap-1.5 px-2 rounded-[6px] text-[12px] font-medium text-[#00b89c] hover:bg-[#e6f7f5] transition-colors"
+                        title="Reactivate"
+                      >
+                        <RotateCcw size={13} strokeWidth={1.5} />
+                        Reactivate
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

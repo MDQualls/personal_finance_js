@@ -21,11 +21,14 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!session) return apiError('Unauthorized', 401)
 
   try {
-    await prisma.subscription.delete({ where: { id: params.id } })
+    await prisma.subscription.update({
+      where: { id: params.id },
+      data: { isActive: false },
+    })
     return apiSuccess({ id: params.id })
   } catch (err) {
     console.error('[subscriptions:DELETE]', err)
-    return apiError('Failed to delete subscription', 500)
+    return apiError('Failed to cancel subscription', 500)
   }
 }
 
