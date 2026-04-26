@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { toCents } from '@/lib/money'
+import { toCents, toDollars } from '@/lib/money'
 import type { Category } from '@/types'
 
 const schema = z.object({
@@ -19,6 +19,7 @@ const schema = z.object({
   categoryId: z.string().min(1, 'Category is required'),
   notes: z.string().max(500).optional(),
   alertDays: z.string().optional(),
+  isActive: z.boolean().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -31,12 +32,27 @@ const FREQ_OPTIONS = [
   { value: 'YEARLY', label: 'Yearly' },
 ]
 
+type InitialValues = {
+  id: string
+  name: string
+  amount: number
+  frequency: string
+  nextDueDate: Date
+  categoryId: string
+  notes: string | null
+  alertDays: number
+  isActive: boolean
+}
+
 interface SubscriptionFormProps {
   categories: Category[]
+  initialValues?: InitialValues
   onSuccess?: () => void
 }
 
-export function SubscriptionForm({ categories, onSuccess }: SubscriptionFormProps) {
+export function SubscriptionForm({ categories, initialValues, onSuccess }: SubscriptionFormProps) {
+  const isEditing = !!initialValues
+
   const {
     register,
     handleSubmit,
@@ -44,30 +60,48 @@ export function SubscriptionForm({ categories, onSuccess }: SubscriptionFormProp
     setError,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      frequency: 'MONTHLY',
-      alertDays: '3',
-      nextDueDate: new Date().toISOString().slice(0, 10),
-    },
+    defaultValues: initialValues
+      ? {
+          name: initialValues.name,
+          amount: toDollars(initialValues.amount).toFixed(2),
+          frequency: initialValues.frequency as FormValues['frequency'],
+          nextDueDate: new Date(initialValues.nextDueDate).toISOString().slice(0, 10),
+          categoryId: initialValues.categoryId,
+          notes: initialValues.notes ?? '',
+          alertDays: String(initialValues.alertDays),
+          isActive: initialValues.isActive,
+        }
+      : {
+          frequency: 'MONTHLY',
+          alertDays: '3',
+          nextDueDate: new Date().toISOString().slice(0, 10),
+          isActive: true,
+        },
   })
 
   async function onSubmit(values: FormValues) {
-    const res = await fetch('/api/subscriptions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: values.name,
-        amount: toCents(parseFloat(values.amount)),
-        frequency: values.frequency,
-        nextDueDate: new Date(values.nextDueDate).toISOString(),
-        categoryId: values.categoryId,
-        notes: values.notes || undefined,
-        alertDays: parseInt(values.alertDays ?? '3', 10),
-      }),
-    })
+    const payload = {
+      name: values.name,
+      amount: toCents(parseFloat(values.amount)),
+      frequency: values.frequency,
+      nextDueDate: new Date(values.nextDueDate).toISOString(),
+      categoryId: values.categoryId,
+      notes: values.notes || undefined,
+      alertDays: parseInt(values.alertDays ?? '3', 10),
+      ...(isEditing ? { isActive: values.isActive } : {}),
+    }
+
+    const res = await fetch(
+      isEditing ? `/api/subscriptions/${initialValues.id}` : '/api/subscriptions',
+      {
+        method: isEditing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    )
 
     if (!res.ok) {
-      setError('root', { message: 'Failed to create subscription.' })
+      setError('root', { message: `Failed to ${isEditing ? 'update' : 'create'} subscription.` })
       return
     }
 
@@ -128,8 +162,17 @@ export function SubscriptionForm({ categories, onSuccess }: SubscriptionFormProp
         {...register('categoryId')}
       />
 
+      {isEditing && (
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" className="rounded" {...register('isActive')} />
+          <span className="text-[13px] text-[#1a2332]">Active</span>
+        </label>
+      )}
+
       <div className="flex justify-end pt-2">
-        <Button type="submit" loading={isSubmitting}>Add Subscription</Button>
+        <Button type="submit" loading={isSubmitting}>
+          {isEditing ? 'Save Changes' : 'Add Subscription'}
+        </Button>
       </div>
     </form>
   )

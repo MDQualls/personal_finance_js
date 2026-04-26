@@ -11,7 +11,7 @@ const CreateSubscriptionSchema = z.object({
   amount: z.number().int().positive(),
   frequency: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']),
   nextDueDate: z.string().datetime(),
-  categoryId: z.string().cuid(),
+  categoryId: z.string().min(1),
   notes: z.string().max(500).optional(),
   alertDays: z.number().int().min(0).max(30).default(3),
 })

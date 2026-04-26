@@ -10,7 +10,7 @@ const CreateRecurringRuleSchema = z.object({
   amount: z.number().int().positive(),
   frequency: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']),
   accountId: z.string().cuid(),
-  categoryId: z.string().cuid(),
+  categoryId: z.string().min(1),
   nextDate: z.string().datetime(),
   type: z.enum(['INCOME', 'EXPENSE']),
 })

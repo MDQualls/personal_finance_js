@@ -8,7 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api'
 const CreateAutoRuleSchema = z.object({
   pattern: z.string().min(1).max(200),
   isRegex: z.boolean().default(false),
-  categoryId: z.string().cuid(),
+  categoryId: z.string().min(1),
   tagId: z.string().cuid().optional(),
   priority: z.number().int().min(0).default(0),
 })

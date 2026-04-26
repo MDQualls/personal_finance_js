@@ -9,7 +9,7 @@ const UpdateTransactionSchema = z.object({
   accountId: z.string().cuid().optional(),
   amount: z.number().int().optional(),
   date: z.string().datetime().optional(),
-  categoryId: z.string().cuid().optional(),
+  categoryId: z.string().min(1).optional(),
   description: z.string().min(1).max(255).optional(),
   notes: z.string().max(1000).nullable().optional(),
   tagIds: z.array(z.string().cuid()).optional(),

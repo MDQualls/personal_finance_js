@@ -2,7 +2,7 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { monthlyEquivalent } from '@/lib/money'
+import { monthlyEquivalent, annualEquivalent } from '@/lib/money'
 import { SubscriptionsClient } from './SubscriptionsClient'
 
 export default async function SubscriptionsPage() {
@@ -22,15 +22,16 @@ export default async function SubscriptionsPage() {
     monthlyEquivalent: monthlyEquivalent(s.amount, s.frequency),
   }))
 
-  const totalMonthly = enriched
-    .filter((s) => s.isActive)
-    .reduce((sum, s) => sum + s.monthlyEquivalent, 0)
+  const active = enriched.filter((s) => s.isActive)
+  const totalMonthly = active.reduce((sum, s) => sum + s.monthlyEquivalent, 0)
+  const totalAnnual = active.reduce((sum, s) => sum + annualEquivalent(s.amount, s.frequency), 0)
 
   return (
     <SubscriptionsClient
       subscriptions={enriched}
       categories={categories}
       totalMonthly={totalMonthly}
+      totalAnnual={totalAnnual}
     />
   )
 }

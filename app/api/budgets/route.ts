@@ -8,7 +8,7 @@ import { startOfPeriod, endOfPeriod } from '@/lib/dates'
 import type { BudgetPeriod } from '@prisma/client'
 
 const CreateBudgetSchema = z.object({
-  categoryId: z.string().cuid(),
+  categoryId: z.string().min(1),
   amount: z.number().int().positive(),
   period: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).default('MONTHLY'),
   startDate: z.string().datetime(),

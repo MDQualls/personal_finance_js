@@ -10,11 +10,24 @@ const UpdateSubscriptionSchema = z.object({
   amount: z.number().int().positive().optional(),
   frequency: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).optional(),
   nextDueDate: z.string().datetime().optional(),
-  categoryId: z.string().cuid().optional(),
+  categoryId: z.string().min(1).optional(),
   notes: z.string().max(500).nullable().optional(),
   isActive: z.boolean().optional(),
   alertDays: z.number().int().min(0).max(30).optional(),
 })
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions)
+  if (!session) return apiError('Unauthorized', 401)
+
+  try {
+    await prisma.subscription.delete({ where: { id: params.id } })
+    return apiSuccess({ id: params.id })
+  } catch (err) {
+    console.error('[subscriptions:DELETE]', err)
+    return apiError('Failed to delete subscription', 500)
+  }
+}
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)

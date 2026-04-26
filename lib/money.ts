@@ -36,6 +36,23 @@ export function sumCents(amounts: number[]): number {
   return amounts.reduce((sum, n) => sum + n, 0)
 }
 
+export function annualEquivalent(cents: number, frequency: string): number {
+  switch (frequency) {
+    case 'WEEKLY':
+      return cents * 52
+    case 'BIWEEKLY':
+      return cents * 26
+    case 'MONTHLY':
+      return cents * 12
+    case 'QUARTERLY':
+      return cents * 4
+    case 'YEARLY':
+      return cents
+    default:
+      return cents * 12
+  }
+}
+
 export function monthlyEquivalent(cents: number, frequency: string): number {
   switch (frequency) {
     case 'WEEKLY':

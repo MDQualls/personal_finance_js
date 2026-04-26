@@ -11,7 +11,7 @@ const ImportRowSchema = z.object({
   date: z.string(),
   amount: z.string(),
   description: z.string().max(255),
-  categoryId: z.string().cuid().optional(),
+  categoryId: z.string().min(1).optional(),
   accountId: z.string().cuid(),
   notes: z.string().max(1000).optional(),
 })

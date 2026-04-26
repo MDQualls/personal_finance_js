@@ -8,7 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api'
 const UpdateAutoRuleSchema = z.object({
   pattern: z.string().min(1).max(200).optional(),
   isRegex: z.boolean().optional(),
-  categoryId: z.string().cuid().optional(),
+  categoryId: z.string().min(1).optional(),
   tagId: z.string().cuid().nullable().optional(),
   priority: z.number().int().min(0).optional(),
 })
