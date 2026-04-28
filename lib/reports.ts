@@ -1,5 +1,5 @@
 import { prisma } from './prisma'
-import { format } from './dates'
+import { format, formatPeriodKey } from './dates'
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot } from '@/types'
 
@@ -82,31 +82,53 @@ export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
 }
 
 export async function getNetWorthHistory(months = 12): Promise<NetWorthSnapshot[]> {
-  const results: NetWorthSnapshot[] = []
   const now = new Date()
+  const currentMonthKey = formatPeriodKey(now)
+  const startMonthKey = formatPeriodKey(subMonths(now, months - 1))
 
+  const records = await prisma.netWorthRecord.findMany({
+    where: { month: { gte: startMonthKey, lte: currentMonthKey } },
+    orderBy: { month: 'asc' },
+  })
+  const recordMap = new Map(records.map((r) => [r.month, r]))
+
+  // Current month is always computed live — no snapshot taken yet this month
   const accounts = await prisma.account.findMany({ where: { isActive: true } })
+  let currentAssets = 0
+  let currentLiabilities = 0
+  for (const account of accounts) {
+    if (['CHECKING', 'SAVINGS', 'INVESTMENT', 'ASSET'].includes(account.type)) {
+      currentAssets += account.balance
+    } else {
+      currentLiabilities += Math.abs(account.balance)
+    }
+  }
+
+  const results: NetWorthSnapshot[] = []
 
   for (let i = months - 1; i >= 0; i--) {
     const monthDate = subMonths(now, i)
+    const monthKey = formatPeriodKey(monthDate)
+    const monthLabel = format(monthDate, 'MMM yyyy')
 
-    let assets = 0
-    let liabilities = 0
-
-    for (const account of accounts) {
-      if (['CHECKING', 'SAVINGS', 'INVESTMENT', 'ASSET'].includes(account.type)) {
-        assets += account.balance
-      } else {
-        liabilities += Math.abs(account.balance)
+    if (monthKey === currentMonthKey) {
+      results.push({
+        month: monthLabel,
+        assets: currentAssets,
+        liabilities: currentLiabilities,
+        netWorth: currentAssets - currentLiabilities,
+      })
+    } else {
+      const record = recordMap.get(monthKey)
+      if (record) {
+        results.push({
+          month: monthLabel,
+          assets: record.assets,
+          liabilities: record.liabilities,
+          netWorth: record.netWorth,
+        })
       }
     }
-
-    results.push({
-      month: format(monthDate, 'MMM yyyy'),
-      assets,
-      liabilities,
-      netWorth: assets - liabilities,
-    })
   }
 
   return results

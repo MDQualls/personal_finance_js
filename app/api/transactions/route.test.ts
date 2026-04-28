@@ -61,6 +61,10 @@ describe('GET /api/transactions', () => {
 })
 
 describe('POST /api/transactions', () => {
+  beforeEach(() => {
+    prismaMock.merchantRule.findMany.mockResolvedValue([])
+  })
+
   it('returns 401 when unauthenticated', async () => {
     noSession()
     const req = new Request('http://localhost/api/transactions', {

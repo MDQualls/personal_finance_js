@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
 import { toCents } from '@/lib/money'
+import { normalizeDescription } from '@/lib/normalize'
 
 const ImportRowSchema = z.object({
   date: z.string(),
@@ -44,8 +45,9 @@ export async function POST(req: NextRequest) {
   let duplicates = 0
   const errors: string[] = []
 
-  // Fetch auto-categorization rules once
+  // Fetch rules once
   const autoRules = await prisma.autoRule.findMany({ orderBy: { priority: 'asc' } })
+  const merchantRules = await prisma.merchantRule.findMany()
 
   // Fetch existing hashes from DB to detect duplicates
   const existingHashes = new Set<string>()
@@ -78,7 +80,7 @@ export async function POST(req: NextRequest) {
         continue
       }
 
-      const description = sanitizeString(row.description)
+      const description = normalizeDescription(sanitizeString(row.description), merchantRules)
       const hash = dedupeHash(dateObj.toISOString().slice(0, 10), String(amountCents), description)
 
       if (existingHashes.has(hash) || batchHashes.has(hash)) {

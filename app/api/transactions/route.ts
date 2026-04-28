@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
+import { normalizeDescription } from '@/lib/normalize'
 
 const CreateTransactionSchema = z.object({
   accountId: z.string().cuid(),
@@ -77,9 +78,13 @@ export async function POST(req: NextRequest) {
   const { tagIds, ...data } = result.data
 
   try {
+    const merchantRules = await prisma.merchantRule.findMany()
+    const description = normalizeDescription(data.description, merchantRules)
+
     const transaction = await prisma.transaction.create({
       data: {
         ...data,
+        description,
         date: new Date(data.date),
         ...(tagIds?.length ? { tags: { connect: tagIds.map((id) => ({ id })) } } : {}),
       },

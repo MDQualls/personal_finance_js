@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Upload, CheckCircle, AlertCircle } from 'lucide-react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -32,11 +32,11 @@ export default function ImportPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  useState(() => {
+  useEffect(() => {
     fetch('/api/accounts')
       .then((r) => r.json())
       .then((b) => setAccounts(b.data ?? []))
-  })
+  }, [])
 
   function parseCSV(text: string): { date: string; amount: string; description: string }[] {
     const lines = text.trim().split('\n')

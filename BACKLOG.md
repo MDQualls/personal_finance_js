@@ -12,35 +12,7 @@ This file tracks known gaps, bugs, and tech debt identified through codebase aud
 
 ## Priority 1 — Correctness Bugs (Active Wrong Behavior)
 
-### [P1-1] Net Worth History Shows Incorrect Data
-**Status:** Open  
-**Files:** `lib/reports.ts` → `getNetWorthHistory()`, `app/api/reports/net-worth/route.ts`  
-**Current behavior:** `getNetWorthHistory()` uses the *current* account balances for every historical month. Every data point on the Net Worth chart is identical — the chart is visually populated but financially wrong.  
-**Target behavior:** Store monthly `NetWorthSnapshot` records and query those instead. Two options:
-1. Add a `NetWorthSnapshot` Prisma model (`month String @unique`, `assets Int`, `liabilities Int`, `netWorth Int`, `createdAt DateTime`). Write a cron-triggered API route `POST /api/snapshots/net-worth` that captures the current balance on the 1st of each month. Query this table in `getNetWorthHistory()`, falling back to the current balance for the current month only.
-2. If no snapshots exist yet, compute historical net worth by replaying transaction history per account backward from today. Option 1 is preferred — simpler and more accurate.
-
-Run `npx prisma migrate dev --name add_net_worth_snapshot` after schema change.
-
----
-
-### [P1-2] Import Page Uses `useState` as an Effect
-**Status:** Open  
-**File:** `app/(dashboard)/transactions/import/page.tsx` line ~52  
-**Current behavior:** `useState(() => { fetch('/api/accounts')... })` is used to trigger a side effect. This is incorrect — the initializer callback runs once synchronously during render and does not behave like `useEffect`. The accounts list may not load reliably.  
-**Target behavior:** Replace with `useEffect(() => { fetch('/api/accounts')... }, [])`. No other changes needed.
-
----
-
-### [P1-3] `lib/normalize.ts` Is Dead Code — Never Called
-**Status:** Open  
-**Files:** `lib/normalize.ts`, `app/api/transactions/route.ts`, `app/api/transactions/import/route.ts`  
-**Current behavior:** Merchant normalization rules (`MerchantRule` model) exist in the schema and `lib/normalize.ts` exists, but it is never imported or called anywhere. Transactions are stored with raw bank description strings — no normalization occurs.  
-**Target behavior:** Call `normalize(description)` from `lib/normalize.ts` in two places:
-1. `POST /api/transactions` — normalize `description` before `prisma.transaction.create()`
-2. `POST /api/transactions/import` — normalize each row's `description` before the dedupe hash and create
-
-Check `lib/normalize.ts` for the existing function signature before wiring it in. Do not rewrite the normalize logic — just connect it.
+*All P1 items complete — moved to Done.*
 
 ---
 

@@ -172,3 +172,12 @@ model MerchantRule {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model NetWorthRecord {
+  id          String   @id @default(cuid())
+  month       String   @unique // "yyyy-MM" e.g. "2026-04"
+  assets      Int      // cents
+  liabilities Int      // cents
+  netWorth    Int      // cents
+  createdAt   DateTime @default(now())
+}
