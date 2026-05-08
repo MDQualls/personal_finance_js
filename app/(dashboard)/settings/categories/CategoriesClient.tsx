@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/Select'
 type Category = {
   id: string
   name: string
+  parentId: string | null
   color: string
   icon: string
   isIncome: boolean
@@ -35,11 +36,14 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
   const [parentId, setParentId] = useState('')
   const [isIncome, setIsIncome] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [addError, setAddError] = useState('')
 
   // Edit state
   const [editing, setEditing] = useState<Category | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('#6b7a8d')
+  const [editParentId, setEditParentId] = useState('')
+  const [editIsIncome, setEditIsIncome] = useState(false)
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
 
@@ -49,6 +53,8 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
     setEditing(cat)
     setEditName(cat.name)
     setEditColor(cat.color)
+    setEditParentId(cat.parentId ?? '')
+    setEditIsIncome(cat.isIncome)
     setEditError('')
   }
 
@@ -59,7 +65,12 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
     const res = await fetch(`/api/categories/${editing.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: editName, color: editColor }),
+      body: JSON.stringify({
+        name: editName,
+        color: editColor,
+        isIncome: editIsIncome,
+        parentId: editParentId === '' ? null : editParentId,
+      }),
     })
     setEditSaving(false)
     if (!res.ok) {
@@ -73,7 +84,8 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
 
   async function save() {
     setSaving(true)
-    await fetch('/api/categories', {
+    setAddError('')
+    const res = await fetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -84,6 +96,11 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
       }),
     })
     setSaving(false)
+    if (!res.ok) {
+      const body = await res.json()
+      setAddError(typeof body.error === 'string' ? body.error : 'Failed to save')
+      return
+    }
     setShowAdd(false)
     router.refresh()
   }
@@ -91,7 +108,13 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
   return (
     <div className="max-w-2xl space-y-4">
       <div className="flex justify-end">
-        <Button onClick={() => setShowAdd(true)}>
+        <Button onClick={() => {
+          setName('')
+          setColor('#6b7a8d')
+          setParentId('')
+          setIsIncome(false)
+          setShowAdd(true)
+        }}>
           <Plus size={16} strokeWidth={1.5} />
           New Category
         </Button>
@@ -170,6 +193,36 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
               <span className="text-[13px] text-[#6b7a8d] font-mono">{editColor}</span>
             </div>
           </div>
+          <div>
+            <Select
+              label="Parent Category"
+              options={[
+                { value: '', label: 'None (top-level)' },
+                ...categories
+                  .filter((c) => c.id !== editing?.id)
+                  .map((c) => ({ value: c.id, label: c.name })),
+              ]}
+              value={editParentId}
+              onChange={(e) => setEditParentId(e.target.value)}
+              disabled={(editing?.children?.length ?? 0) > 0}
+            />
+            {(editing?.children?.length ?? 0) > 0 && (
+              <p className="text-[12px] text-[#6b7a8d] mt-1">
+                This category has subcategories and cannot be moved under another category.
+              </p>
+            )}
+          </div>
+          <div>
+            <Select
+              label="Type"
+              options={[
+                { value: 'expense', label: 'Expense' },
+                { value: 'income', label: 'Income' },
+              ]}
+              value={editIsIncome ? 'income' : 'expense'}
+              onChange={(e) => setEditIsIncome(e.target.value === 'income')}
+            />
+          </div>
           {editError && <p className="text-[13px] text-[#ef4444]">{editError}</p>}
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
@@ -179,7 +232,7 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
       </Modal>
 
       {/* Add modal */}
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="New Category">
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setName(''); setColor('#6b7a8d'); setParentId(''); setIsIncome(false); setAddError('') }} title="New Category">
         <div className="space-y-4">
           <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Groceries" />
           <Select
@@ -192,10 +245,18 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
             <label className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">Color</label>
             <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-10 w-14 cursor-pointer rounded-[8px] border border-[#e8ecf0] p-1" />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={isIncome} onChange={(e) => setIsIncome(e.target.checked)} className="rounded" />
-            <span className="text-[13px] text-[#1a2332]">This is an income category</span>
-          </label>
+          <div>
+            <Select
+              label="Type"
+              options={[
+                { value: 'expense', label: 'Expense' },
+                { value: 'income', label: 'Income' },
+              ]}
+              value={isIncome ? 'income' : 'expense'}
+              onChange={(e) => setIsIncome(e.target.value === 'income')}
+            />
+          </div>
+          {addError && <p className="text-[13px] text-[#ef4444]">{addError}</p>}
           <div className="flex justify-end pt-2">
             <Button loading={saving} onClick={save}>Create Category</Button>
           </div>

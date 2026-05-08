@@ -37,7 +37,7 @@ type InitialValues = {
 }
 
 interface BudgetFormProps {
-  categories: Category[]
+  categories: (Category & { children: Category[] })[]
   initialValues?: InitialValues
   onSuccess?: () => void
 }
@@ -85,7 +85,16 @@ export function BudgetForm({ categories, initialValues, onSuccess }: BudgetFormP
     onSuccess?.()
   }
 
-  const categoryOptions = categories.map((c) => ({ value: c.id, label: c.name }))
+  const categoryOptions: { value: string; label: string }[] = []
+  for (const cat of categories) {
+    if (cat.children.length === 0) {
+      categoryOptions.push({ value: cat.id, label: cat.name })
+    } else {
+      for (const sub of cat.children) {
+        categoryOptions.push({ value: sub.id, label: sub.name })
+      }
+    }
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

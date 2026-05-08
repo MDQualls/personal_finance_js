@@ -15,6 +15,10 @@ This file is the authoritative guide for Claude Code working in this repository.
 
 A personal-use, fullstack Next.js finance tracker. Single user. No multi-tenancy. Dockerized with a Postgres database. AI-powered insights via the Anthropic API.
 
+##At the start of every session
+- Give a report detailing what we did last session and what is next for this session.
+- Do not proceed with any updates with any updates until the report has been reviewed and you are given permission to proceed.
+
 ---
 
 ## Tech Stack

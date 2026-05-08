@@ -38,7 +38,7 @@ type FilterTab = 'active' | 'cancelled'
 
 interface Props {
   subscriptions: Subscription[]
-  categories: Category[]
+  categories: (Category & { children: Category[] })[]
   totalMonthly: number
   totalAnnual: number
 }

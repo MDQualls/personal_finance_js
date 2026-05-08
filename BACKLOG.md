@@ -18,8 +18,8 @@ This file tracks known gaps, bugs, and tech debt identified through codebase aud
 
 ## Priority 2 — Missing Features (Spec Calls For, Not Built)
 
-### [P2-1] Recurring Transactions — Full Implementation
-**Status:** Open  
+### [P2-1] Recurring Transactions — Full Implementation ✓
+**Status:** Complete — 2026-05-08  
 **Spec:** `RECURRING.md` — read in full before starting  
 **Summary:** The `RecurringRule` model exists and feeds cash flow projections but has no UI, no CRUD API routes, and no auto-posting engine.
 
@@ -40,31 +40,24 @@ This file tracks known gaps, bugs, and tech debt identified through codebase aud
 
 ---
 
-### [P2-2] Calendar Page Missing Recurring Rules
-**Status:** Open  
+### [P2-2] Calendar Page Missing Recurring Rules ✓
+**Status:** Complete — 2026-05-08  
 **File:** `app/(dashboard)/calendar/page.tsx`  
-**Current behavior:** Calendar only queries `prisma.subscription` for upcoming items. Recurring rules with upcoming `nextDate` values are completely absent.  
-**Target behavior:** Also query `prisma.recurringRule.findMany({ where: { isActive: true, nextDate: { lte: ninetyDaysOut } } })` and merge the results into `upcomingItems`. Use `type: 'recurring'` to distinguish from subscriptions. In the UI, render recurring items with a `RefreshCw` icon instead of the category color dot, and show the account name as supporting text instead of a category name.
+Added `prisma.recurringRule` query (isActive + nextDate ≤ 90 days), merged with subscriptions into `upcomingItems`, sorted by daysAway. Recurring items render with `RefreshCw` icon + account name as supporting text; subscriptions keep their category color dot.
 
 ---
 
-### [P2-3] Dashboard Upcoming Bills Missing Recurring Rules
-**Status:** Open  
+### [P2-3] Dashboard Upcoming Bills Missing Recurring Rules ✓
+**Status:** Complete — 2026-05-08  
 **File:** `app/(dashboard)/dashboard/page.tsx`  
-**Current behavior:** The "Upcoming Bills" widget only pulls from `prisma.subscription`. Recurring expense rules due in the next 7 days do not appear.  
-**Target behavior:** Add a second query for `RecurringRule` entries where `type = EXPENSE`, `isActive = true`, `nextDate` within 7 days. Merge with subscription results, sort by date, show top 5. Display account name as supporting text for recurring items.
+Added `prisma.recurringRule` query (EXPENSE, isActive, nextDate within 7 days). Merged with subscription bills, sorted by date, top 5 shown.
 
 ---
 
-### [P2-4] Account Edit and Archive Not Implemented
-**Status:** Open  
-**Files:** `app/(dashboard)/accounts/AccountsClient.tsx`, `app/api/accounts/[id]/route.ts`  
-**Current behavior:** Accounts page has an "Add Account" button but no way to edit an existing account's name, type, or balance, and no way to archive it. The `[id]` API route likely exists — check what methods it currently handles.  
-**Target behavior:**
-- Add edit button (pencil icon) on each account row — opens a modal with `AccountForm` pre-populated
-- Add archive button — calls `PATCH /api/accounts/[id]` with `{ isActive: false }` after confirmation
-- Add "Show Archived" toggle to reveal inactive accounts with a Restore option
-- Ensure `PATCH /api/accounts/[id]` handles `{ isActive: false }` and full field updates
+### [P2-4] Account Edit and Archive Not Implemented ✓
+**Status:** Complete — 2026-05-08  
+**Files:** `app/(dashboard)/accounts/AccountsClient.tsx`, `app/(dashboard)/accounts/page.tsx`, `components/forms/AccountForm.tsx`  
+Pencil + Archive buttons (hover-reveal) on each account row. AccountForm extended with `initialValues` prop for edit mode (PATCH). Archive with confirm dialog sets `isActive: false`. "Show Archived (N)" toggle reveals archived accounts with Restore button. Page now passes flat accounts array; grouping logic moved to client. `window.location.reload()` replaced with `router.refresh()`.
 
 ---
 
@@ -103,8 +96,8 @@ This file tracks known gaps, bugs, and tech debt identified through codebase aud
 ## Priority 3 — Tech Debt (Works but Needs Improvement)
 
 ### [P3-1] `window.location.reload()` Anti-Pattern Throughout
-**Status:** Open  
-**Files:** `app/(dashboard)/accounts/AccountsClient.tsx`, `app/(dashboard)/budgets/BudgetsClient.tsx`, `app/(dashboard)/subscriptions/SubscriptionsClient.tsx`, `app/(dashboard)/settings/categories/CategoriesClient.tsx`  
+**Status:** Open (partial — CategoriesClient.tsx fixed 2026-04-27)  
+**Files:** `app/(dashboard)/accounts/AccountsClient.tsx`, `app/(dashboard)/budgets/BudgetsClient.tsx`, `app/(dashboard)/subscriptions/SubscriptionsClient.tsx`  
 **Current behavior:** After mutations (create, edit, delete), components call `window.location.reload()` to refresh data. This is a full browser reload — it loses scroll position, flashes, and is inconsistent with Next.js App Router patterns.  
 **Target behavior:** Replace `window.location.reload()` with `router.refresh()` from `next/navigation`. Import `useRouter` and call `router.refresh()` after successful mutations. This triggers a server-side revalidation of the current route without a full reload. Also close modals and reset form state after the refresh.
 
@@ -173,8 +166,18 @@ This reduces N queries to 1 regardless of the months parameter.
 
 ## Done
 
-*Items will be moved here as they are completed.*
+### [P1-2] Import Page Uses `useState` as an Effect ✓
+**Completed:** 2026-04-27  
+`useState(() => fetch(...))` → `useEffect(() => fetch(...), [])` in `app/(dashboard)/transactions/import/page.tsx`.
+
+### [P1-3] `lib/normalize.ts` Is Dead Code — Never Called ✓
+**Completed:** 2026-04-27  
+`normalizeDescription()` wired into `POST /api/transactions` (before create) and `POST /api/transactions/import` (after sanitize, before dedupe hash). Both route test files updated with `prismaMock.merchantRule.findMany.mockResolvedValue([])`.
+
+### [P1-1] Net Worth History Shows Incorrect Data ✓
+**Completed:** 2026-04-27  
+Added `NetWorthRecord` Prisma model (`month @unique`, `assets`, `liabilities`, `netWorth` in cents). Migration: `20260428001428_add_net_worth_record`. Created `POST /api/snapshots/net-worth` (upserts current balances for the current month). Updated `getNetWorthHistory()` to query stored records for past months and compute live from account balances for the current month — past months without a snapshot are omitted rather than showing stale data.
 
 ---
 
-*BACKLOG.md — Last audited April 26, 2026*
+*BACKLOG.md — Last audited 2026-04-27*

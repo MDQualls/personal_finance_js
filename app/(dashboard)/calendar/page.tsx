@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
+import { RefreshCw } from 'lucide-react'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { formatDisplay, daysUntil } from '@/lib/dates'
@@ -16,21 +17,41 @@ export default async function CalendarPage() {
   const now = new Date()
   const ninetyDaysOut = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
 
-  const subscriptions = await prisma.subscription.findMany({
-    where: { isActive: true, nextDueDate: { lte: ninetyDaysOut } },
-    include: { category: true },
-    orderBy: { nextDueDate: 'asc' },
-  })
+  const [subscriptions, recurringRules] = await Promise.all([
+    prisma.subscription.findMany({
+      where: { isActive: true, nextDueDate: { lte: ninetyDaysOut } },
+      include: { category: true },
+      orderBy: { nextDueDate: 'asc' },
+    }),
+    prisma.recurringRule.findMany({
+      where: { isActive: true, nextDate: { lte: ninetyDaysOut } },
+      include: { account: true },
+      orderBy: { nextDate: 'asc' },
+    }),
+  ])
 
-  const upcomingItems = subscriptions.map((sub) => ({
-    id: sub.id,
-    name: sub.name,
-    amount: sub.amount,
-    date: sub.nextDueDate,
-    daysAway: daysUntil(sub.nextDueDate),
-    type: 'subscription' as const,
-    color: sub.category.color,
-  }))
+  const upcomingItems = [
+    ...subscriptions.map((sub) => ({
+      id: sub.id,
+      name: sub.name,
+      amount: sub.amount,
+      date: sub.nextDueDate,
+      daysAway: daysUntil(sub.nextDueDate),
+      type: 'subscription' as const,
+      color: sub.category.color,
+      accountName: undefined as string | undefined,
+    })),
+    ...recurringRules.map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      amount: Math.abs(rule.amount),
+      date: rule.nextDate,
+      daysAway: daysUntil(rule.nextDate),
+      type: 'recurring' as const,
+      color: undefined as string | undefined,
+      accountName: rule.account.name,
+    })),
+  ].sort((a, b) => a.daysAway - b.daysAway)
 
   return (
     <div className="space-y-6">
@@ -61,13 +82,20 @@ export default async function CalendarPage() {
                 {(window === 30 ? items : windowItems).map((item) => (
                   <div key={item.id} className="flex items-center justify-between px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: item.color }}
-                      />
+                      {item.type === 'recurring' ? (
+                        <RefreshCw size={12} strokeWidth={1.5} className="text-[#6b7a8d] flex-shrink-0" />
+                      ) : (
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: item.color }}
+                        />
+                      )}
                       <div>
                         <p className="text-[14px] font-medium text-[#1a2332]">{item.name}</p>
-                        <p className="text-[12px] text-[#6b7a8d]">{formatDisplay(item.date)}</p>
+                        <p className="text-[12px] text-[#6b7a8d]">
+                          {formatDisplay(item.date)}
+                          {item.accountName && <span className="ml-1">· {item.accountName}</span>}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

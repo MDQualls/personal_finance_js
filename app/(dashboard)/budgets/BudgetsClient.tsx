@@ -32,7 +32,7 @@ type FilterTab = 'active' | 'archived'
 
 interface BudgetsClientProps {
   budgets: Budget[]
-  categories: Category[]
+  categories: (Category & { children: Category[] })[]
 }
 
 export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {

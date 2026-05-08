@@ -78,6 +78,112 @@ describe('PATCH /api/categories/[id]', () => {
     const res = await PATCH(req as never, { params: { id: 'cuid_cat_1' } })
     expect(res.status).toBe(500)
   })
+
+  it('can update isIncome flag', async () => {
+    mockSession()
+    const cat = { ...mockCategory({ isSystem: false, isIncome: false }), _count: { children: 0 } }
+    const updated = { ...cat, isIncome: true }
+    prismaMock.category.findUnique.mockResolvedValue(cat as never)
+    prismaMock.category.update.mockResolvedValue(updated as never)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ isIncome: true }),
+    })
+    const res = await PATCH(req as never, { params: { id: cat.id } })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.isIncome).toBe(true)
+  })
+
+  it('promotes subcategory to top-level when parentId is null', async () => {
+    mockSession()
+    const cat = { ...mockCategory({ isSystem: false, parentId: 'cuid_parent_1' }), _count: { children: 0 } }
+    prismaMock.category.findUnique.mockResolvedValue(cat as never)
+    prismaMock.category.update.mockResolvedValue({ ...cat, parentId: null } as never)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId: null }),
+    })
+    const res = await PATCH(req as never, { params: { id: cat.id } })
+    expect(res.status).toBe(200)
+  })
+
+  it('moves a top-level category under another top-level parent', async () => {
+    mockSession()
+    const cat = { ...mockCategory({ id: 'cuid_cat_1', isSystem: false, parentId: null }), _count: { children: 0 } }
+    const parent = mockCategory({ id: 'cuid_parent_1', parentId: null })
+    prismaMock.category.findUnique
+      .mockResolvedValueOnce(cat as never)
+      .mockResolvedValueOnce(parent as never)
+    prismaMock.category.update.mockResolvedValue({ ...cat, parentId: parent.id } as never)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId: 'cuid_parent_1' }),
+    })
+    const res = await PATCH(req as never, { params: { id: 'cuid_cat_1' } })
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 400 when parentId is the category itself (self-reference)', async () => {
+    mockSession()
+    const cat = { ...mockCategory({ id: 'cuid_cat_1', isSystem: false }), _count: { children: 0 } }
+    prismaMock.category.findUnique.mockResolvedValue(cat as never)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId: 'cuid_cat_1' }),
+    })
+    const res = await PATCH(req as never, { params: { id: 'cuid_cat_1' } })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when moving a category that has subcategories', async () => {
+    mockSession()
+    const cat = { ...mockCategory({ id: 'cuid_cat_1', isSystem: false, parentId: null }), _count: { children: 2 } }
+    prismaMock.category.findUnique.mockResolvedValue(cat as never)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId: 'cuid_parent_1' }),
+    })
+    const res = await PATCH(req as never, { params: { id: 'cuid_cat_1' } })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when prospective parent is itself a subcategory', async () => {
+    mockSession()
+    const cat = { ...mockCategory({ id: 'cuid_cat_1', isSystem: false, parentId: null }), _count: { children: 0 } }
+    const prospectiveParent = mockCategory({ id: 'cuid_sub_1', parentId: 'cuid_grandparent_1' })
+    prismaMock.category.findUnique
+      .mockResolvedValueOnce(cat as never)
+      .mockResolvedValueOnce(prospectiveParent as never)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId: 'cuid_sub_1' }),
+    })
+    const res = await PATCH(req as never, { params: { id: 'cuid_cat_1' } })
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when prospective parent does not exist', async () => {
+    mockSession()
+    const cat = { ...mockCategory({ id: 'cuid_cat_1', isSystem: false, parentId: null }), _count: { children: 0 } }
+    prismaMock.category.findUnique
+      .mockResolvedValueOnce(cat as never)
+      .mockResolvedValueOnce(null)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId: 'cuid_nonexistent' }),
+    })
+    const res = await PATCH(req as never, { params: { id: 'cuid_cat_1' } })
+    expect(res.status).toBe(400)
+  })
 })
 
 describe('DELETE /api/categories/[id]', () => {

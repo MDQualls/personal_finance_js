@@ -1,5 +1,5 @@
-import { isDueWithinDays, daysUntil } from './dates'
-import type { BudgetAlert, SubscriptionAlert, LargeTransactionAlert } from '@/types'
+import { isDueWithinDays, daysUntil, isBefore, differenceInDays } from './dates'
+import type { BudgetAlert, SubscriptionAlert, LargeTransactionAlert, OverdueRecurringAlert } from '@/types'
 
 type BudgetWithSpent = {
   id: string
@@ -76,6 +76,24 @@ export function getUpcomingSubscriptionAlerts(
   }
 
   return alerts
+}
+
+export function getOverdueRecurringAlerts(
+  rules: Array<{ id: string; name: string; amount: number; nextDate: Date; isActive: boolean; autoPost: boolean }>
+): OverdueRecurringAlert[] {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+
+  return rules
+    .filter((r) => r.isActive && !r.autoPost && isBefore(r.nextDate, now))
+    .map((r) => ({
+      type: 'recurring_overdue' as const,
+      ruleId: r.id,
+      name: r.name,
+      amount: r.amount,
+      nextDate: r.nextDate,
+      daysOverdue: differenceInDays(now, r.nextDate),
+    }))
 }
 
 export function getLargeTransactionAlerts(

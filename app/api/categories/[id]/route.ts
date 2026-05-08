@@ -10,6 +10,8 @@ const UpdateCategorySchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   icon: z.string().max(50).optional(),
   isActive: z.boolean().optional(),
+  isIncome: z.boolean().optional(),
+  parentId: z.string().min(1).nullable().optional(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -21,9 +23,35 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!result.success) return apiError(result.error.format(), 400)
 
   try {
-    const existing = await prisma.category.findUnique({ where: { id: params.id } })
+    const existing = await prisma.category.findUnique({
+      where: { id: params.id },
+      include: { _count: { select: { children: true } } },
+    })
     if (!existing) return apiError('Category not found', 404)
     if (existing.isSystem) return apiError('System categories cannot be modified', 403)
+
+    const { parentId: newParentId } = result.data
+
+    if (newParentId !== undefined) {
+      if (newParentId === params.id) {
+        return apiError('A category cannot be its own parent', 400)
+      }
+
+      if (newParentId !== null) {
+        const [prospectiveParent] = await Promise.all([
+          prisma.category.findUnique({ where: { id: newParentId } }),
+        ])
+
+        if (!prospectiveParent) return apiError('Parent category not found', 400)
+        if (prospectiveParent.parentId !== null) {
+          return apiError('Parent must be a top-level category', 400)
+        }
+
+        if (existing._count.children > 0) {
+          return apiError('Cannot move a category that has subcategories. Reassign them first.', 400)
+        }
+      }
+    }
 
     const category = await prisma.category.update({
       where: { id: params.id },

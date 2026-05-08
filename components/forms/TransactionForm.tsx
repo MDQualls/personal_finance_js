@@ -92,9 +92,12 @@ export function TransactionForm({ accounts, categories, initialValues, onSuccess
 
   const categoryOptions: { value: string; label: string }[] = []
   for (const cat of categories) {
-    categoryOptions.push({ value: cat.id, label: cat.name })
-    for (const sub of cat.children) {
-      categoryOptions.push({ value: sub.id, label: `  ${sub.name}` })
+    if (cat.children.length === 0) {
+      categoryOptions.push({ value: cat.id, label: cat.name })
+    } else {
+      for (const sub of cat.children) {
+        categoryOptions.push({ value: sub.id, label: sub.name })
+      }
     }
   }
 

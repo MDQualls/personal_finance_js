@@ -20,13 +20,23 @@ export default async function DashboardPage() {
   const monthStart = startOfPeriod(now, 'MONTHLY')
   const monthEnd = endOfPeriod(now, 'MONTHLY')
 
-  const [accounts, budgets, subscriptions, recentTx] = await Promise.all([
+  const sevenDaysOut = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+  const [accounts, budgets, subscriptions, upcomingRecurring, recentTx] = await Promise.all([
     prisma.account.findMany({ where: { isActive: true } }),
     prisma.budget.findMany({ include: { category: true } }),
     prisma.subscription.findMany({
       where: { isActive: true },
       orderBy: { nextDueDate: 'asc' },
-      take: 5,
+      take: 10,
+    }),
+    prisma.recurringRule.findMany({
+      where: {
+        isActive: true,
+        type: 'EXPENSE',
+        nextDate: { gte: now, lte: sevenDaysOut },
+      },
+      orderBy: { nextDate: 'asc' },
     }),
     prisma.transaction.findMany({
       where: { deletedAt: null },
@@ -67,8 +77,12 @@ export default async function DashboardPage() {
   const totalIncome = incomeThisMonth._sum.amount ?? 0
   const totalExpenses = Math.abs(expensesThisMonth._sum.amount ?? 0)
 
-  const upcomingBills = subscriptions
-    .filter((s) => daysUntil(s.nextDueDate) >= 0 && daysUntil(s.nextDueDate) <= 7)
+  const upcomingBills = [
+    ...subscriptions
+      .filter((s) => daysUntil(s.nextDueDate) >= 0 && daysUntil(s.nextDueDate) <= 7)
+      .map((s) => ({ id: s.id, name: s.name, amount: s.amount, date: s.nextDueDate, accountName: undefined as string | undefined })),
+    ...upcomingRecurring.map((r) => ({ id: r.id, name: r.name, amount: Math.abs(r.amount), date: r.nextDate, accountName: undefined as string | undefined })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -146,14 +160,14 @@ export default async function DashboardPage() {
             <p className="text-[13px] text-[#6b7a8d]">No bills due this week.</p>
           ) : (
             <div className="space-y-3">
-              {upcomingBills.map((sub) => (
-                <div key={sub.id} className="flex items-center justify-between">
+              {upcomingBills.map((bill) => (
+                <div key={bill.id} className="flex items-center justify-between">
                   <div>
-                    <p className="text-[13px] font-medium text-[#1a2332]">{sub.name}</p>
-                    <p className="text-[12px] text-[#6b7a8d]">{formatDisplay(sub.nextDueDate)}</p>
+                    <p className="text-[13px] font-medium text-[#1a2332]">{bill.name}</p>
+                    <p className="text-[12px] text-[#6b7a8d]">{formatDisplay(bill.date)}</p>
                   </div>
                   <p className="text-[13px] font-semibold font-tabular text-[#1a2332]">
-                    {formatCurrency(sub.amount)}
+                    {formatCurrency(bill.amount)}
                   </p>
                 </div>
               ))}

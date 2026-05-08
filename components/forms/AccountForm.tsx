@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { toCents } from '@/lib/money'
+import { toCents, toDollars } from '@/lib/money'
 
 const schema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -31,30 +31,45 @@ const ACCOUNT_TYPES = [
 
 interface AccountFormProps {
   onSuccess?: () => void
+  initialValues?: { id: string; name: string; type: string; balance: number; currency: string }
 }
 
-export function AccountForm({ onSuccess }: AccountFormProps) {
+export function AccountForm({ onSuccess, initialValues }: AccountFormProps) {
+  const isEditing = !!initialValues
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     setError,
-  } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: initialValues
+      ? {
+          name: initialValues.name,
+          type: initialValues.type as FormValues['type'],
+          balance: toDollars(initialValues.balance).toString(),
+          currency: initialValues.currency,
+        }
+      : undefined,
+  })
 
   async function onSubmit(values: FormValues) {
-    const res = await fetch('/api/accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: values.name,
-        type: values.type,
-        balance: toCents(parseFloat(values.balance)),
-        currency: values.currency,
-      }),
-    })
+    const res = await fetch(
+      isEditing ? `/api/accounts/${initialValues!.id}` : '/api/accounts',
+      {
+        method: isEditing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: values.name,
+          type: values.type,
+          balance: toCents(parseFloat(values.balance)),
+          currency: values.currency,
+        }),
+      }
+    )
 
     if (!res.ok) {
-      setError('root', { message: 'Failed to create account. Please try again.' })
+      setError('root', { message: `Failed to ${isEditing ? 'update' : 'create'} account. Please try again.` })
       return
     }
 
@@ -104,7 +119,7 @@ export function AccountForm({ onSuccess }: AccountFormProps) {
 
       <div className="flex justify-end gap-3 pt-2">
         <Button type="submit" loading={isSubmitting}>
-          Add Account
+          {isEditing ? 'Save Changes' : 'Add Account'}
         </Button>
       </div>
     </form>

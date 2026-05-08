@@ -79,6 +79,10 @@ export type RecurringRule = {
   categoryId: string
   nextDate: Date
   type: RecurringType
+  isActive: boolean
+  autoPost: boolean
+  notes: string | null
+  lastPostedAt: Date | null
   createdAt: Date
   updatedAt: Date
   account?: Account
@@ -198,7 +202,16 @@ export type LargeTransactionAlert = {
   threshold: number // cents
 }
 
-export type Alert = BudgetAlert | SubscriptionAlert | LargeTransactionAlert
+export type OverdueRecurringAlert = {
+  type: 'recurring_overdue'
+  ruleId: string
+  name: string
+  amount: number // cents
+  nextDate: Date
+  daysOverdue: number
+}
+
+export type Alert = BudgetAlert | SubscriptionAlert | LargeTransactionAlert | OverdueRecurringAlert
 
 // ─── CSV Import Types ─────────────────────────────────────────────────────────
 

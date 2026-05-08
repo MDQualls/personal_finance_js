@@ -22,14 +22,21 @@ import {
 export type Period = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
 export type Frequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
 
+function utcToLocal(d: Date): Date {
+  // Dates from the DB are stored at midnight UTC. Constructing a local Date
+  // from the UTC calendar parts prevents the local timezone from shifting the
+  // displayed day (e.g. 2026-02-21T00:00Z rendering as Feb 20 in UTC-5).
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+}
+
 export function formatDisplay(date: Date | string): string {
   const d = typeof date === 'string' ? parseISO(date) : date
-  return format(d, 'MMM d, yyyy')
+  return format(utcToLocal(d), 'MMM d, yyyy')
 }
 
 export function formatMonth(date: Date | string): string {
   const d = typeof date === 'string' ? parseISO(date) : date
-  return format(d, 'MMMM yyyy')
+  return format(utcToLocal(d), 'MMMM yyyy')
 }
 
 export function formatPeriodKey(date: Date): string {

@@ -14,7 +14,11 @@ export default async function SubscriptionsPage() {
       include: { category: true },
       orderBy: { nextDueDate: 'asc' },
     }),
-    prisma.category.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.category.findMany({
+      where: { isActive: true, parentId: null },
+      include: { children: { where: { isActive: true }, orderBy: { name: 'asc' } } },
+      orderBy: { name: 'asc' },
+    }),
   ])
 
   const enriched = subscriptions.map((s) => ({

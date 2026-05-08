@@ -7,7 +7,7 @@ import { apiSuccess, apiError } from '@/lib/api'
 
 const CreateCategorySchema = z.object({
   name: z.string().min(1).max(80),
-  parentId: z.string().cuid().optional(),
+  parentId: z.string().min(1).optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6b7a8d'),
   icon: z.string().max(50).default('tag'),
   isIncome: z.boolean().default(false),
