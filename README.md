@@ -14,6 +14,7 @@ A self-hosted, single-user personal finance dashboard. Track accounts, transacti
 - **Reports** — spending by category (pie chart), monthly income vs. expense trends (bar chart), net worth over time (area chart). All charts filterable by date range.
 - **Cash Flow** — projected daily balance for the next 30/60/90 days based on recurring rules and active subscriptions. Highlights days where balance dips below zero.
 - **AI Insights** — on-demand Claude analysis of a selected month. Summarizes spending patterns, flags overspend categories, audits subscriptions, explains month-over-month changes, and generates actionable recommendations. Results cached per period.
+- **Recurring Transactions** — define recurring income and expense rules (salary, rent, loan payments). Auto-posting engine creates transactions on schedule. "Post Due Now" posts all overdue rules in one click, or post individual rules on demand. Income and expense sections with a summary footer.
 - **Auto-Categorization Rules** — pattern-match rules applied automatically on transaction entry and CSV import.
 - **Tags** — free-form labels for transactions, filterable across the transaction list and reports.
 
@@ -50,6 +51,7 @@ personal_finance_js/
   │   │   ├── transactions/     # Full transaction log + CSV import
   │   │   ├── budgets/          # Budget progress and management
   │   │   ├── subscriptions/    # Subscription tracker
+  │   │   ├── recurring/        # Recurring transaction rules + auto-post engine
   │   │   ├── calendar/         # Upcoming bills calendar
   │   │   ├── reports/          # Charts + AI insights
   │   │   ├── cashflow/         # Projected balance
@@ -63,13 +65,15 @@ personal_finance_js/
   │   │   ├── insights/         # AI insight generation + cache retrieval
   │   │   ├── categories/
   │   │   ├── tags/
-  │   │   ├── rules/            # Recurring rules for cash flow projection
-  │   │   └── auto-rules/       # Auto-categorization rules
+  │   │   ├── recurring/        # RecurringRule CRUD, post-due, post-now
+  │   │   ├── rules/            # RecurringRule legacy endpoint (feeds projection engine)
+  │   │   ├── auto-rules/       # Auto-categorization rules
+  │   │   └── snapshots/        # Net worth snapshot upsert (POST /snapshots/net-worth)
   │   └── auth/signin/          # Login page
   ├── components/
   │   ├── ui/                   # Button, Input, Modal, Badge, Card, BudgetProgress, TransactionRow, ...
   │   ├── charts/               # Recharts wrappers (Pie, Bar, Area, Line)
-  │   ├── forms/                # AccountForm, TransactionForm, BudgetForm, SubscriptionForm
+  │   ├── forms/                # AccountForm, TransactionForm, BudgetForm, SubscriptionForm, RecurringRuleForm
   │   └── layout/               # Sidebar, Header, SessionProvider
   ├── lib/
   │   ├── prisma.ts             # Prisma singleton
@@ -81,6 +85,7 @@ personal_finance_js/
   │   ├── rateLimit.ts          # In-memory token bucket (auth: 10/15min, insights: 20/hr)
   │   ├── alerts.ts             # Budget, subscription, and large-transaction alert logic
   │   ├── projection.ts         # Cash flow projection engine
+  │   ├── recurringEngine.ts    # Recurring rule auto-post engine (atomic post + nextDate advance)
   │   ├── reports.ts            # Server-side aggregation for report endpoints
   │   └── normalize.ts          # Merchant description normalization
   ├── prisma/
@@ -207,6 +212,7 @@ Category ──< RecurringRule
 
 Account ──< RecurringRule
 
+NetWorthRecord (monthly snapshot — month @unique, assets, liabilities, netWorth in cents)
 AIInsight (keyed by period, e.g. "2026-04")
 AutoRule  (pattern → category mapping for import/entry)
 MerchantRule (pattern → display name normalization)
