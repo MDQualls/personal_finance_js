@@ -4,6 +4,10 @@ import { mockSession, noSession } from '@/lib/__mocks__/auth'
 import { mockTransaction } from '@/__tests__/factories/transaction'
 
 describe('GET /api/transactions', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+  })
+
   it('returns 401 when unauthenticated', async () => {
     noSession()
     const req = new Request('http://localhost/api/transactions')
@@ -63,6 +67,7 @@ describe('GET /api/transactions', () => {
 describe('POST /api/transactions', () => {
   beforeEach(() => {
     prismaMock.merchantRule.findMany.mockResolvedValue([])
+    jest.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   it('returns 401 when unauthenticated', async () => {
@@ -78,7 +83,7 @@ describe('POST /api/transactions', () => {
   it('creates a transaction with valid data', async () => {
     mockSession()
     const tx = mockTransaction({ description: 'Grocery run', amount: -4500 })
-    prismaMock.transaction.create.mockResolvedValue(tx as never)
+    prismaMock.$transaction.mockResolvedValue([tx, { id: 'clxxxxxxxxxxxxxxxxxx001', balance: 0 }])
 
     const req = new Request('http://localhost/api/transactions', {
       method: 'POST',

@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     const [transactions, total] = await prisma.$transaction([
       prisma.transaction.findMany({
         where,
-        include: { category: true, tags: true },
+        include: { category: true, tags: true, account: true },
         orderBy: showDeleted ? { deletedAt: 'desc' } : { date: 'desc' },
         skip,
         take: limit,
@@ -81,15 +81,21 @@ export async function POST(req: NextRequest) {
     const merchantRules = await prisma.merchantRule.findMany()
     const description = normalizeDescription(data.description, merchantRules)
 
-    const transaction = await prisma.transaction.create({
-      data: {
-        ...data,
-        description,
-        date: new Date(data.date),
-        ...(tagIds?.length ? { tags: { connect: tagIds.map((id) => ({ id })) } } : {}),
-      },
-      include: { category: true, tags: true },
-    })
+    const [transaction] = await prisma.$transaction([
+      prisma.transaction.create({
+        data: {
+          ...data,
+          description,
+          date: new Date(data.date),
+          ...(tagIds?.length ? { tags: { connect: tagIds.map((id) => ({ id })) } } : {}),
+        },
+        include: { category: true, tags: true, account: true },
+      }),
+      prisma.account.update({
+        where: { id: data.accountId },
+        data: { balance: { increment: data.amount } },
+      }),
+    ])
     return apiSuccess(transaction)
   } catch (err) {
     console.error('[transactions:POST]', err)

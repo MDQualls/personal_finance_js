@@ -3,6 +3,10 @@ import { prismaMock } from '@/lib/__mocks__/prisma'
 import { mockSession, noSession } from '@/lib/__mocks__/auth'
 import { mockTransaction } from '@/__tests__/factories/transaction'
 
+beforeEach(() => {
+  jest.spyOn(console, 'error').mockImplementation(() => {})
+})
+
 describe('PATCH /api/transactions/[id]', () => {
   it('returns 401 when unauthenticated', async () => {
     noSession()
@@ -19,7 +23,7 @@ describe('PATCH /api/transactions/[id]', () => {
     const tx = mockTransaction()
     const updated = { ...tx, description: 'Updated description' }
     prismaMock.transaction.findUnique.mockResolvedValue(tx)
-    prismaMock.transaction.update.mockResolvedValue(updated as never)
+    prismaMock.$transaction.mockResolvedValue([updated])
 
     const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {
       method: 'PATCH',
@@ -50,7 +54,7 @@ describe('PATCH /api/transactions/[id]', () => {
     const deleted = mockTransaction({ deletedAt: new Date() })
     const restored = { ...deleted, deletedAt: null }
     prismaMock.transaction.findUnique.mockResolvedValue(deleted)
-    prismaMock.transaction.update.mockResolvedValue(restored as never)
+    prismaMock.$transaction.mockResolvedValue([restored, { id: deleted.accountId, balance: 0 }])
 
     const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {
       method: 'PATCH',
@@ -80,7 +84,7 @@ describe('PATCH /api/transactions/[id]', () => {
     mockSession()
     const tx = mockTransaction()
     prismaMock.transaction.findUnique.mockResolvedValue(tx)
-    prismaMock.transaction.update.mockRejectedValue(new Error('DB error'))
+    prismaMock.$transaction.mockRejectedValue(new Error('DB error'))
 
     const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {
       method: 'PATCH',
@@ -105,7 +109,7 @@ describe('DELETE /api/transactions/[id]', () => {
     mockSession()
     const tx = mockTransaction()
     prismaMock.transaction.findUnique.mockResolvedValue(tx)
-    prismaMock.transaction.update.mockResolvedValue({ ...tx, deletedAt: new Date() })
+    prismaMock.$transaction.mockResolvedValue([{ ...tx, deletedAt: new Date() }, { id: tx.accountId, balance: 0 }])
 
     const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {
       method: 'DELETE',
@@ -147,7 +151,7 @@ describe('DELETE /api/transactions/[id]', () => {
     mockSession()
     const tx = mockTransaction()
     prismaMock.transaction.findUnique.mockResolvedValue(tx)
-    prismaMock.transaction.update.mockResolvedValue({ ...tx, deletedAt: new Date() })
+    prismaMock.$transaction.mockResolvedValue([{ ...tx, deletedAt: new Date() }, { id: tx.accountId, balance: 0 }])
 
     const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {
       method: 'DELETE',

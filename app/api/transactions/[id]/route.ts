@@ -31,18 +31,42 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!existing) return apiError('Transaction not found', 404)
     if (existing.deletedAt && !restore) return apiError('Transaction has been deleted', 410)
 
-    const transaction = await prisma.transaction.update({
-      where: { id: params.id },
-      data: {
-        ...rest,
-        ...(date ? { date: new Date(date) } : {}),
-        ...(restore ? { deletedAt: null } : {}),
-        ...(tagIds !== undefined
-          ? { tags: { set: tagIds.map((id) => ({ id })) } }
-          : {}),
-      },
-      include: { category: true, tags: true },
-    })
+    const newAccountId = rest.accountId ?? existing.accountId
+    const newAmount = rest.amount ?? existing.amount
+
+    const balanceOps: ReturnType<typeof prisma.account.update>[] = []
+    if (restore) {
+      balanceOps.push(
+        prisma.account.update({ where: { id: existing.accountId }, data: { balance: { increment: existing.amount } } })
+      )
+    } else if (rest.amount !== undefined || rest.accountId !== undefined) {
+      if (newAccountId === existing.accountId) {
+        balanceOps.push(
+          prisma.account.update({ where: { id: existing.accountId }, data: { balance: { increment: newAmount - existing.amount } } })
+        )
+      } else {
+        balanceOps.push(
+          prisma.account.update({ where: { id: existing.accountId }, data: { balance: { decrement: existing.amount } } }),
+          prisma.account.update({ where: { id: newAccountId }, data: { balance: { increment: newAmount } } })
+        )
+      }
+    }
+
+    const [transaction] = await prisma.$transaction([
+      prisma.transaction.update({
+        where: { id: params.id },
+        data: {
+          ...rest,
+          ...(date ? { date: new Date(date) } : {}),
+          ...(restore ? { deletedAt: null } : {}),
+          ...(tagIds !== undefined
+            ? { tags: { set: tagIds.map((id) => ({ id })) } }
+            : {}),
+        },
+        include: { category: true, tags: true, account: true },
+      }),
+      ...balanceOps,
+    ])
     return apiSuccess(transaction)
   } catch (err) {
     console.error('[transactions:PATCH]', err)
@@ -59,10 +83,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     if (!existing) return apiError('Transaction not found', 404)
     if (existing.deletedAt) return apiError('Transaction already deleted', 410)
 
-    await prisma.transaction.update({
-      where: { id: params.id },
-      data: { deletedAt: new Date() },
-    })
+    await prisma.$transaction([
+      prisma.transaction.update({ where: { id: params.id }, data: { deletedAt: new Date() } }),
+      prisma.account.update({ where: { id: existing.accountId }, data: { balance: { decrement: existing.amount } } }),
+    ])
     return apiSuccess({ id: params.id })
   } catch (err) {
     console.error('[transactions:DELETE]', err)

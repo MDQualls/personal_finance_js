@@ -294,6 +294,7 @@ These are invariants. Do not write code that violates them.
 - **System categories** (`isSystem: true`) cannot be modified or deleted by any API route.
 - **Budget amounts must be positive integers.** Validate at the Zod layer.
 - **Duplicate detection on CSV import** uses a hash of `date + amount + description`. If a match exists, skip the row and include it in the import summary response.
+- **Account balance is updated atomically on every transaction mutation.** `POST /api/transactions` increments balance by amount; `DELETE` (soft-delete) decrements; `PATCH` restore increments; `PATCH` edit adjusts by delta (handles account reassignment). All balance updates use `prisma.$transaction()` alongside the transaction write. Never modify a transaction without updating the corresponding account balance.
 
 ---
 

@@ -10,6 +10,7 @@ interface TransactionRowProps {
   transaction: Transaction & {
     category?: { name: string; color: string; icon: string } | null
     tags?: { id: string; name: string; color: string }[]
+    account?: { name: string } | null
   }
   onDelete?: (id: string) => void
   onEdit?: () => void
@@ -49,6 +50,9 @@ export function TransactionRow({ transaction, onDelete, onEdit, onRestore }: Tra
             </p>
             {transaction.category && (
               <span className="text-[12px] text-[#6b7a8d]">· {transaction.category.name}</span>
+            )}
+            {transaction.account && (
+              <span className="text-[12px] text-[#6b7a8d]">· {transaction.account.name}</span>
             )}
             {isDeleted && transaction.deletedAt && (
               <span className="text-[11px] text-[#ef4444]">
