@@ -43,3 +43,11 @@ prisma/migrations/dev.db
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code — session artifacts
+.claude/
+CLAUDE.md
+BACKLOG.md
+PersonalFinanceTracker-Spec.md
+PLAID.md
+RECURRING.md
