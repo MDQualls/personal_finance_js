@@ -25,8 +25,15 @@ jest.mock('next-auth/providers/credentials', () => ({
   default: jest.fn((config: unknown) => ({ id: 'credentials', type: 'credentials', ...(config as object) })),
 }))
 
-// Reset Prisma mock and clear call history before each test
+// Reset Prisma mock and clear call history before each test.
+// Suppress console.error — route handlers intentionally call it in catch blocks,
+// so error-path tests produce expected but noisy output without this.
 beforeEach(() => {
   mockReset(_prismaMock)
   jest.clearAllMocks()
+  jest.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  jest.restoreAllMocks()
 })
