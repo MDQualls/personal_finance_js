@@ -6,14 +6,16 @@ import { Spinner } from '@/components/ui/Spinner'
 import { SpendingPieChart } from '@/components/charts/SpendingPieChart'
 import { MonthlyTrendChart } from '@/components/charts/MonthlyTrendChart'
 import { NetWorthChart } from '@/components/charts/NetWorthChart'
+import { BudgetActualChart } from '@/components/charts/BudgetActualChart'
 import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
-import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot } from '@/types'
+import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow } from '@/types'
 
 export default function ReportsPage() {
   const [spending, setSpending] = useState<SpendingByCategory[]>([])
   const [trends, setTrends] = useState<MonthlyTrend[]>([])
   const [netWorth, setNetWorth] = useState<NetWorthSnapshot[]>([])
+  const [budgetActual, setBudgetActual] = useState<BudgetActualRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const now = new Date()
@@ -26,10 +28,12 @@ export default function ReportsPage() {
       fetch(`/api/reports/spending?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
       fetch('/api/reports/trends?months=6').then((r) => r.json()),
       fetch('/api/reports/net-worth?months=12').then((r) => r.json()),
-    ]).then(([s, t, n]) => {
+      fetch(`/api/reports/budget-actual?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
+    ]).then(([s, t, n, b]) => {
       setSpending(s.data ?? [])
       setTrends(t.data ?? [])
       setNetWorth(n.data ?? [])
+      setBudgetActual(b.data ?? [])
       setLoading(false)
     })
   }, [from, to])
@@ -70,7 +74,16 @@ export default function ReportsPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-5">
             <Card>
-              <CardHeader title="Spending by Category" subtitle="Expenses only" />
+              <div className="flex items-start justify-between mb-1">
+                <CardHeader title="Spending by Category" subtitle="Expenses only" />
+                <a
+                  href={`/api/reports/spending?from=${from}T00:00:00Z&to=${to}T23:59:59Z&format=csv`}
+                  download="spending.csv"
+                  className="text-[12px] text-[#00b89c] hover:text-[#009e87] font-medium shrink-0 mt-0.5"
+                >
+                  Export CSV
+                </a>
+              </div>
               <SpendingPieChart data={spending} />
             </Card>
 
@@ -99,13 +112,31 @@ export default function ReportsPage() {
           </div>
 
           <Card>
-            <CardHeader title="Monthly Trend" subtitle="Income vs. Expenses — past 6 months" />
+            <div className="flex items-start justify-between mb-1">
+              <CardHeader title="Monthly Trend" subtitle="Income vs. Expenses — past 6 months" />
+              <a
+                href="/api/reports/trends?months=6&format=csv"
+                download="trends.csv"
+                className="text-[12px] text-[#00b89c] hover:text-[#009e87] font-medium shrink-0 mt-0.5"
+              >
+                Export CSV
+              </a>
+            </div>
             <MonthlyTrendChart data={trends} />
           </Card>
 
           <Card>
             <CardHeader title="Net Worth" subtitle="Past 12 months" />
             <NetWorthChart data={netWorth} />
+          </Card>
+
+          <Card>
+            <CardHeader title="Budget vs. Actual" subtitle="Active budgets for selected period — highest usage first" />
+            {budgetActual.length === 0 ? (
+              <p className="text-[13px] text-[#6b7a8d] pt-2">No active budgets to display.</p>
+            ) : (
+              <BudgetActualChart data={budgetActual} />
+            )}
           </Card>
         </div>
       )}

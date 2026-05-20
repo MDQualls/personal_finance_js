@@ -174,6 +174,14 @@ export type NetWorthSnapshot = {
   netWorth: number // cents
 }
 
+export type BudgetActualRow = {
+  categoryId: string
+  categoryName: string
+  budgeted: number // cents
+  spent: number // cents
+  percentage: number
+}
+
 // ─── Alert Types ──────────────────────────────────────────────────────────────
 
 export type BudgetAlert = {
