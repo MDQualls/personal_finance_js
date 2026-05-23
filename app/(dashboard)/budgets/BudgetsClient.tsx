@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, PiggyBank, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -36,6 +37,7 @@ interface BudgetsClientProps {
 }
 
 export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {
+  const router = useRouter()
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<Budget | null>(null)
   const [tab, setTab] = useState<FilterTab>('active')
@@ -47,7 +49,7 @@ export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {
   async function handleArchive(id: string) {
     if (!confirm('Archive this budget? You can restore it later.')) return
     await fetch(`/api/budgets/${id}`, { method: 'DELETE' })
-    window.location.reload()
+    router.refresh()
   }
 
   async function handleRestore(id: string) {
@@ -56,7 +58,7 @@ export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: true }),
     })
-    window.location.reload()
+    router.refresh()
   }
 
   return (
@@ -172,7 +174,7 @@ export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="New Budget">
         <BudgetForm
           categories={categories}
-          onSuccess={() => { setShowAdd(false); window.location.reload() }}
+          onSuccess={() => { setShowAdd(false); router.refresh() }}
         />
       </Modal>
 
@@ -181,7 +183,7 @@ export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {
           <BudgetForm
             categories={categories}
             initialValues={editing}
-            onSuccess={() => { setEditing(null); window.location.reload() }}
+            onSuccess={() => { setEditing(null); router.refresh() }}
           />
         )}
       </Modal>

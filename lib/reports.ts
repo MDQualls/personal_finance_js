@@ -42,43 +42,41 @@ export async function getSpendingByCategory(from: Date, to: Date): Promise<Spend
 }
 
 export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
-  const results: MonthlyTrend[] = []
   const now = new Date()
+  const start = startOfMonth(subMonths(now, months - 1))
+  const end = endOfMonth(now)
+
+  const transactions = await prisma.transaction.findMany({
+    where: { deletedAt: null, date: { gte: start, lte: end } },
+    include: { category: true },
+  })
+
+  const monthMap = new Map<string, { income: number; expenses: number; byCategory: Record<string, number> }>()
 
   for (let i = months - 1; i >= 0; i--) {
-    const monthDate = subMonths(now, i)
-    const start = startOfMonth(monthDate)
-    const end = endOfMonth(monthDate)
-
-    const transactions = await prisma.transaction.findMany({
-      where: { deletedAt: null, date: { gte: start, lte: end } },
-      include: { category: true },
-    })
-
-    let income = 0
-    let expenses = 0
-    const byCategory: Record<string, number> = {}
-
-    for (const tx of transactions) {
-      if (tx.amount > 0) {
-        income += tx.amount
-      } else {
-        const abs = Math.abs(tx.amount)
-        expenses += abs
-        byCategory[tx.category.name] = (byCategory[tx.category.name] ?? 0) + abs
-      }
-    }
-
-    results.push({
-      month: format(monthDate, 'MMM yyyy'),
-      income,
-      expenses,
-      net: income - expenses,
-      byCategory,
-    })
+    monthMap.set(format(subMonths(now, i), 'MMM yyyy'), { income: 0, expenses: 0, byCategory: {} })
   }
 
-  return results
+  for (const tx of transactions) {
+    const key = format(tx.date, 'MMM yyyy')
+    const entry = monthMap.get(key)
+    if (!entry) continue
+    if (tx.amount > 0) {
+      entry.income += tx.amount
+    } else {
+      const abs = Math.abs(tx.amount)
+      entry.expenses += abs
+      entry.byCategory[tx.category.name] = (entry.byCategory[tx.category.name] ?? 0) + abs
+    }
+  }
+
+  return [...monthMap.entries()].map(([month, { income, expenses, byCategory }]) => ({
+    month,
+    income,
+    expenses,
+    net: income - expenses,
+    byCategory,
+  }))
 }
 
 export async function getNetWorthHistory(months = 12): Promise<NetWorthSnapshot[]> {

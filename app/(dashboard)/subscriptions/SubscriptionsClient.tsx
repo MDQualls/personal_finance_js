@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Repeat, Pencil, Trash2, RotateCcw } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export function SubscriptionsClient({ subscriptions, categories, totalMonthly, totalAnnual }: Props) {
+  const router = useRouter()
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<Subscription | null>(null)
   const [tab, setTab] = useState<FilterTab>('active')
@@ -77,7 +79,7 @@ export function SubscriptionsClient({ subscriptions, categories, totalMonthly, t
   async function handleCancel(id: string, name: string) {
     if (!confirm(`Cancel "${name}"? It will be moved to cancelled subscriptions.`)) return
     await fetch(`/api/subscriptions/${id}`, { method: 'DELETE' })
-    window.location.reload()
+    router.refresh()
   }
 
   async function handleReactivate(id: string) {
@@ -86,7 +88,7 @@ export function SubscriptionsClient({ subscriptions, categories, totalMonthly, t
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: true }),
     })
-    window.location.reload()
+    router.refresh()
   }
 
   return (
@@ -243,7 +245,7 @@ export function SubscriptionsClient({ subscriptions, categories, totalMonthly, t
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Subscription">
         <SubscriptionForm
           categories={categories}
-          onSuccess={() => { setShowAdd(false); window.location.reload() }}
+          onSuccess={() => { setShowAdd(false); router.refresh() }}
         />
       </Modal>
 
@@ -252,7 +254,7 @@ export function SubscriptionsClient({ subscriptions, categories, totalMonthly, t
           <SubscriptionForm
             categories={categories}
             initialValues={editing}
-            onSuccess={() => { setEditing(null); window.location.reload() }}
+            onSuccess={() => { setEditing(null); router.refresh() }}
           />
         )}
       </Modal>
