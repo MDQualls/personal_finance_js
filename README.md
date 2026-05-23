@@ -11,11 +11,12 @@ A self-hosted, single-user personal finance dashboard. Track accounts, transacti
 - **Budgets** — set monthly (or weekly/quarterly/yearly) spending limits per category. Color-coded progress bars. Optional rollover.
 - **Subscriptions** — track recurring services with due-date alerts, monthly/annual cost totals, and status badges.
 - **Calendar** — 30/60/90-day view of upcoming bills and subscription charges.
-- **Reports** — spending by category (pie chart), monthly income vs. expense trends (bar chart), net worth over time (area chart). All charts filterable by date range.
+- **Reports** — spending by category (pie chart), monthly income vs. expense trends (bar chart), net worth over time (area chart), and budget vs. actual comparison (horizontal bar chart). Date range filter applies to all charts. Spending and trends charts include a CSV export link.
 - **Cash Flow** — projected daily balance for the next 30/60/90 days based on recurring rules and active subscriptions. Highlights days where balance dips below zero.
 - **AI Insights** — on-demand Claude analysis of a selected month. Summarizes spending patterns, flags overspend categories, audits subscriptions, explains month-over-month changes, and generates actionable recommendations. Results cached per period.
 - **Recurring Transactions** — define recurring income and expense rules (salary, rent, loan payments). Auto-posting engine creates transactions on schedule. "Post Due Now" posts all overdue rules in one click, or post individual rules on demand. Income and expense sections with a summary footer.
 - **Auto-Categorization Rules** — pattern-match rules applied automatically on transaction entry and CSV import.
+- **Merchant Normalization Rules** — pattern-match rules that rewrite raw merchant names to clean display names on transaction entry and CSV import.
 - **Tags** — free-form labels for transactions, filterable across the transaction list and reports.
 
 ---
@@ -53,20 +54,21 @@ personal_finance_js/
   │   │   ├── subscriptions/    # Subscription tracker
   │   │   ├── recurring/        # Recurring transaction rules + auto-post engine
   │   │   ├── calendar/         # Upcoming bills calendar
-  │   │   ├── reports/          # Charts + AI insights
+  │   │   ├── reports/          # Charts (spending, trends, net worth, budget vs. actual)
+  │   │   │   └── insights/     # AI insight generation and cached results
   │   │   ├── cashflow/         # Projected balance
-  │   │   └── settings/         # Categories, tags, auto-rules
+  │   │   └── settings/         # Categories, tags, auto-categorization rules, merchant normalization rules
   │   ├── api/                  # Next.js route handlers (all auth-gated)
   │   │   ├── accounts/
   │   │   ├── transactions/
   │   │   ├── budgets/
   │   │   ├── subscriptions/
-  │   │   ├── reports/          # spending, trends, net-worth, cashflow
+  │   │   ├── reports/          # spending, trends, net-worth, cashflow, budget-actual
   │   │   ├── insights/         # AI insight generation + cache retrieval
   │   │   ├── categories/
   │   │   ├── tags/
   │   │   ├── recurring/        # RecurringRule CRUD, post-due, post-now
-  │   │   ├── rules/            # RecurringRule legacy endpoint (feeds projection engine)
+  │   │   ├── rules/            # Legacy recurring rules endpoint (route.ts) + merchant normalization (rules/merchant/)
   │   │   ├── auto-rules/       # Auto-categorization rules
   │   │   └── snapshots/        # Net worth snapshot upsert (POST /snapshots/net-worth)
   │   └── auth/signin/          # Login page
