@@ -18,6 +18,7 @@ type BudgetActualRow = {
   budgeted: number
   spent: number
   percentage: number
+  budgetType: 'SPENDING_LIMIT' | 'SAVINGS_GOAL'
 }
 
 interface BudgetActualChartProps {
@@ -32,8 +33,12 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
       <p className="font-medium text-[#1a2332] mb-2">{row.categoryName}</p>
       <p className="text-[#6b7a8d]">Budgeted: {formatCurrency(row.budgeted)}</p>
       <p className="text-[#6b7a8d]">Spent: {formatCurrency(row.spent)}</p>
-      <p className={`font-medium mt-1 ${row.percentage >= 100 ? 'text-[#ef4444]' : 'text-[#00b89c]'}`}>
-        {row.percentage}% used
+      <p className={`font-medium mt-1 ${
+        row.budgetType === 'SAVINGS_GOAL'
+          ? (row.percentage >= 100 ? 'text-[#22c55e]' : 'text-[#00b89c]')
+          : (row.percentage >= 100 ? 'text-[#ef4444]' : 'text-[#00b89c]')
+      }`}>
+        {row.percentage}% {row.budgetType === 'SAVINGS_GOAL' ? 'saved' : 'used'}
       </p>
     </div>
   )
@@ -68,7 +73,11 @@ export function BudgetActualChart({ data }: BudgetActualChartProps) {
           {data.map((row) => (
             <Cell
               key={row.categoryId}
-              fill={row.percentage >= 100 ? '#ef4444' : '#00b89c'}
+              fill={
+                row.budgetType === 'SAVINGS_GOAL'
+                  ? (row.percentage >= 100 ? '#22c55e' : '#00b89c')
+                  : (row.percentage >= 100 ? '#ef4444' : '#00b89c')
+              }
             />
           ))}
         </Bar>

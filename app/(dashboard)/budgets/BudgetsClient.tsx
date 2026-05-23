@@ -19,6 +19,7 @@ type Budget = {
   rollover: boolean
   isActive: boolean
   categoryId: string
+  budgetType: 'SPENDING_LIMIT' | 'SAVINGS_GOAL'
   category: { id: string; name: string; color: string }
 }
 
@@ -44,7 +45,9 @@ export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {
 
   const visible = budgets.filter((b) => (tab === 'active' ? b.isActive : !b.isActive))
   const archivedCount = budgets.filter((b) => !b.isActive).length
-  const overCount = budgets.filter((b) => b.isActive && b.spent >= b.amount).length
+  const overCount = budgets.filter(
+    (b) => b.isActive && b.budgetType !== 'SAVINGS_GOAL' && b.spent >= b.amount
+  ).length
 
   async function handleArchive(id: string) {
     if (!confirm('Archive this budget? You can restore it later.')) return
@@ -165,7 +168,7 @@ export function BudgetsClient({ budgets, categories }: BudgetsClientProps) {
                   </div>
                 </div>
               </div>
-              <BudgetProgress spent={budget.spent} limit={budget.amount} />
+              <BudgetProgress spent={budget.spent} limit={budget.amount} budgetType={budget.budgetType} />
             </Card>
           ))}
         </div>

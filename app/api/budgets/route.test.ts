@@ -110,6 +110,26 @@ describe('POST /api/budgets', () => {
     expect(res.status).toBe(400)
   })
 
+  it('accepts SAVINGS_GOAL as a valid budgetType', async () => {
+    mockSession()
+    const cat = mockCategory()
+    const budget = mockBudget({ budgetType: 'SAVINGS_GOAL' })
+    prismaMock.budget.create.mockResolvedValue({ ...budget, category: cat } as never)
+
+    const req = new Request('http://localhost/api/budgets', {
+      method: 'POST',
+      body: JSON.stringify({
+        categoryId: 'cuid_category_1',
+        amount: 50000,
+        period: 'MONTHLY',
+        startDate: '2026-04-01T00:00:00.000Z',
+        budgetType: 'SAVINGS_GOAL',
+      }),
+    })
+    const res = await POST(req as never)
+    expect(res.status).toBe(200)
+  })
+
   it('returns 500 on DB error', async () => {
     mockSession()
     prismaMock.budget.create.mockRejectedValue(new Error('DB error'))

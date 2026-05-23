@@ -11,6 +11,7 @@ const CreateBudgetSchema = z.object({
   categoryId: z.string().min(1),
   amount: z.number().int().positive(),
   period: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).default('MONTHLY'),
+  budgetType: z.enum(['SPENDING_LIMIT', 'SAVINGS_GOAL']).default('SPENDING_LIMIT'),
   startDate: z.string().datetime(),
   rollover: z.boolean().default(false),
 })

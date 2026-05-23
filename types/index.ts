@@ -1,4 +1,4 @@
-import type { AccountType, BudgetPeriod, Frequency, RecurringType } from '@prisma/client'
+import type { AccountType, BudgetPeriod, BudgetType, Frequency, RecurringType } from '@prisma/client'
 
 // ─── Domain Types ─────────────────────────────────────────────────────────────
 
@@ -46,6 +46,7 @@ export type Budget = {
   categoryId: string
   amount: number // cents
   period: BudgetPeriod
+  budgetType: BudgetType
   startDate: Date
   rollover: boolean
   createdAt: Date
@@ -180,6 +181,7 @@ export type BudgetActualRow = {
   budgeted: number // cents
   spent: number // cents
   percentage: number
+  budgetType: BudgetType
 }
 
 // ─── Alert Types ──────────────────────────────────────────────────────────────

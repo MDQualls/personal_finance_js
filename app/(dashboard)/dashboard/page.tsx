@@ -134,6 +134,7 @@ export default async function DashboardPage() {
                     spent={b.spent}
                     limit={b.amount}
                     label={b.category.name}
+                    budgetType={b.budgetType}
                   />
                 ))}
               </div>

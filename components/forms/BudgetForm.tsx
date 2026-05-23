@@ -15,6 +15,7 @@ const schema = z.object({
     message: 'Enter a positive amount',
   }),
   period: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']),
+  budgetType: z.enum(['SPENDING_LIMIT', 'SAVINGS_GOAL']).default('SPENDING_LIMIT'),
   rollover: z.boolean().optional(),
 })
 
@@ -27,10 +28,16 @@ const PERIOD_OPTIONS = [
   { value: 'YEARLY', label: 'Yearly' },
 ]
 
+const BUDGET_TYPE_OPTIONS = [
+  { value: 'SPENDING_LIMIT', label: 'Spending Limit' },
+  { value: 'SAVINGS_GOAL', label: 'Savings Goal' },
+]
+
 type InitialValues = {
   id: string
   amount: number
   period: string
+  budgetType: 'SPENDING_LIMIT' | 'SAVINGS_GOAL'
   rollover: boolean
   categoryId: string
   category: { id: string; name: string; color: string }
@@ -57,9 +64,10 @@ export function BudgetForm({ categories, initialValues, onSuccess }: BudgetFormP
           categoryId: initialValues.categoryId,
           amount: toDollars(initialValues.amount).toFixed(2),
           period: initialValues.period as FormValues['period'],
+          budgetType: initialValues.budgetType,
           rollover: initialValues.rollover,
         }
-      : { period: 'MONTHLY' },
+      : { period: 'MONTHLY', budgetType: 'SPENDING_LIMIT' },
   })
 
   async function onSubmit(values: FormValues) {
@@ -67,6 +75,7 @@ export function BudgetForm({ categories, initialValues, onSuccess }: BudgetFormP
       categoryId: values.categoryId,
       amount: toCents(parseFloat(values.amount)),
       period: values.period,
+      budgetType: values.budgetType,
       rollover: values.rollover ?? false,
       ...(!isEditing ? { startDate: new Date().toISOString() } : {}),
     }
@@ -128,6 +137,13 @@ export function BudgetForm({ categories, initialValues, onSuccess }: BudgetFormP
           {...register('period')}
         />
       </div>
+
+      <Select
+        label="Budget Type"
+        options={BUDGET_TYPE_OPTIONS}
+        error={errors.budgetType?.message}
+        {...register('budgetType')}
+      />
 
       <label className="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" className="rounded" {...register('rollover')} />

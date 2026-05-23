@@ -5,6 +5,7 @@ interface BudgetProgressProps {
   limit: number  // cents
   label?: string
   showAmounts?: boolean
+  budgetType?: 'SPENDING_LIMIT' | 'SAVINGS_GOAL'
 }
 
 function getProgressColor(percentage: number): string {
@@ -19,11 +20,19 @@ function getBadgeVariant(percentage: number): string {
   return 'text-[#22c55e] bg-[#f0fdf4]'
 }
 
-export function BudgetProgress({ spent, limit, label, showAmounts = true }: BudgetProgressProps) {
+export function BudgetProgress({ spent, limit, label, showAmounts = true, budgetType }: BudgetProgressProps) {
   const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0
   const displayPercentage = limit > 0 ? Math.round((spent / limit) * 100) : 0
-  const color = getProgressColor(displayPercentage)
-  const badgeVariant = getBadgeVariant(displayPercentage)
+
+  const isSavingsGoal = budgetType === 'SAVINGS_GOAL'
+  const color = isSavingsGoal
+    ? (displayPercentage >= 100 ? '#22c55e' : '#00b89c')
+    : getProgressColor(displayPercentage)
+  const badgeVariant = isSavingsGoal
+    ? (displayPercentage >= 100
+        ? 'text-[#22c55e] bg-[#f0fdf4]'
+        : 'text-[#00b89c] bg-[#e6f7f5]')
+    : getBadgeVariant(displayPercentage)
 
   return (
     <div className="space-y-1.5">
@@ -45,8 +54,8 @@ export function BudgetProgress({ spent, limit, label, showAmounts = true }: Budg
 
       {showAmounts && (
         <div className="flex justify-between text-[12px] text-[#6b7a8d]">
-          <span>{formatCurrency(spent)} spent</span>
-          <span>{formatCurrency(limit)} budget</span>
+          <span>{formatCurrency(spent)} {isSavingsGoal ? 'saved' : 'spent'}</span>
+          <span>{formatCurrency(limit)} {isSavingsGoal ? 'goal' : 'budget'}</span>
         </div>
       )}
     </div>

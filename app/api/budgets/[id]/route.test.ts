@@ -60,6 +60,20 @@ describe('PATCH /api/budgets/[id]', () => {
     )
   })
 
+  it('can update budgetType to SAVINGS_GOAL', async () => {
+    mockSession()
+    const cat = mockCategory()
+    const updated = mockBudget({ budgetType: 'SAVINGS_GOAL' })
+    prismaMock.budget.update.mockResolvedValue({ ...updated, category: cat } as never)
+
+    const req = new Request('http://localhost/api/budgets/cuid_budget_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ budgetType: 'SAVINGS_GOAL' }),
+    })
+    const res = await PATCH(req as never, { params: { id: 'cuid_budget_1' } })
+    expect(res.status).toBe(200)
+  })
+
   it('returns 500 on DB error', async () => {
     mockSession()
     prismaMock.budget.update.mockRejectedValue(new Error('DB error'))

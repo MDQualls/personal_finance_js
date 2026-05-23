@@ -9,6 +9,7 @@ export function mockBudget(overrides: Partial<Budget> = {}): Budget {
     categoryId: 'cuid_category_1',
     amount: 50000, // $500.00
     period: 'MONTHLY',
+    budgetType: 'SPENDING_LIMIT',
     startDate: new Date('2026-04-01T00:00:00Z'),
     rollover: false,
     isActive: true,

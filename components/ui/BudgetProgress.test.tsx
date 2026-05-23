@@ -54,3 +54,29 @@ describe('BudgetProgress', () => {
     expect(screen.getByText('0%')).toBeInTheDocument()
   })
 })
+
+describe('BudgetProgress — SAVINGS_GOAL type', () => {
+  it('renders green badge when savings goal is met (100%+)', () => {
+    const { container } = render(<BudgetProgress spent={10500} limit={10000} budgetType="SAVINGS_GOAL" />)
+    const badge = container.querySelector('span')
+    expect(badge?.className).toContain('text-[#22c55e]')
+  })
+
+  it('renders teal badge when savings goal is under 100%', () => {
+    const { container } = render(<BudgetProgress spent={7000} limit={10000} budgetType="SAVINGS_GOAL" />)
+    const badge = container.querySelector('span')
+    expect(badge?.className).toContain('text-[#00b89c]')
+  })
+
+  it('shows "saved" and "goal" labels for SAVINGS_GOAL', () => {
+    render(<BudgetProgress spent={5000} limit={10000} budgetType="SAVINGS_GOAL" showAmounts />)
+    expect(screen.getByText(/saved/)).toBeInTheDocument()
+    expect(screen.getByText(/goal/)).toBeInTheDocument()
+  })
+
+  it('does not show red badge at 100%+ for SAVINGS_GOAL', () => {
+    const { container } = render(<BudgetProgress spent={10500} limit={10000} budgetType="SAVINGS_GOAL" />)
+    const badge = container.querySelector('span')
+    expect(badge?.className).not.toContain('text-[#ef4444]')
+  })
+})

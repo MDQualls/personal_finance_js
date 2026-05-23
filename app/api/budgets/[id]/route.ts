@@ -8,6 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api'
 const UpdateBudgetSchema = z.object({
   amount: z.number().int().positive().optional(),
   period: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).optional(),
+  budgetType: z.enum(['SPENDING_LIMIT', 'SAVINGS_GOAL']).optional(),
   rollover: z.boolean().optional(),
   isActive: z.boolean().optional(),
 })

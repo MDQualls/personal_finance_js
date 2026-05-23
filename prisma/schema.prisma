@@ -27,6 +27,11 @@ enum BudgetPeriod {
   YEARLY
 }
 
+enum BudgetType {
+  SPENDING_LIMIT
+  SAVINGS_GOAL
+}
+
 enum Frequency {
   WEEKLY
   BIWEEKLY
@@ -96,6 +101,7 @@ model Budget {
   categoryId String
   amount     Int          // cents
   period     BudgetPeriod @default(MONTHLY)
+  budgetType BudgetType   @default(SPENDING_LIMIT)
   startDate  DateTime
   rollover   Boolean      @default(false)
   isActive   Boolean      @default(true)

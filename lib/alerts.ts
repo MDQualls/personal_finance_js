@@ -5,6 +5,7 @@ type BudgetWithSpent = {
   id: string
   amount: number
   spent: number
+  budgetType?: 'SPENDING_LIMIT' | 'SAVINGS_GOAL'
   category: { name: string }
 }
 
@@ -28,6 +29,7 @@ export function getBudgetAlerts(budgets: BudgetWithSpent[]): BudgetAlert[] {
 
   for (const budget of budgets) {
     if (budget.amount <= 0) continue
+    if (budget.budgetType === 'SAVINGS_GOAL') continue
     const percentage = (budget.spent / budget.amount) * 100
 
     if (percentage >= 100) {

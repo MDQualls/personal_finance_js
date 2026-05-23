@@ -44,11 +44,18 @@ export async function GET(req: NextRequest) {
           budgeted: budget.amount,
           spent,
           percentage,
+          budgetType: budget.budgetType,
         }
       })
     )
 
-    const sorted = rows.sort((a, b) => b.percentage - a.percentage)
+    const sorted = rows.sort((a, b) => {
+      const aIsAchievedGoal = a.budgetType === 'SAVINGS_GOAL' && a.percentage >= 100
+      const bIsAchievedGoal = b.budgetType === 'SAVINGS_GOAL' && b.percentage >= 100
+      if (aIsAchievedGoal && !bIsAchievedGoal) return 1
+      if (!aIsAchievedGoal && bIsAchievedGoal) return -1
+      return b.percentage - a.percentage
+    })
     return apiSuccess(sorted)
   } catch (err) {
     console.error('[reports/budget-actual:GET]', err)

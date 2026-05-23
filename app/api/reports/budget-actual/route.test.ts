@@ -8,6 +8,7 @@ const mockBudget = (overrides = {}) => ({
   categoryId: 'cuid_category_1',
   amount: 50000, // $500.00
   period: 'MONTHLY' as const,
+  budgetType: 'SPENDING_LIMIT' as const,
   startDate: new Date('2026-05-01T00:00:00Z'),
   rollover: false,
   isActive: true,
@@ -134,6 +135,42 @@ describe('GET /api/reports/budget-actual', () => {
         }),
       })
     )
+  })
+
+  it('includes budgetType in each row', async () => {
+    mockSession()
+    prismaMock.budget.findMany.mockResolvedValue([mockBudget()] as never)
+    prismaMock.transaction.aggregate.mockResolvedValue({ _sum: { amount: -30000 } } as never)
+
+    const res = await GET(new Request('http://localhost/api/reports/budget-actual') as never)
+    const body = await res.json()
+
+    expect(body.data[0].budgetType).toBe('SPENDING_LIMIT')
+  })
+
+  it('sorts savings goals at 100%+ below spending budgets at 100%+', async () => {
+    mockSession()
+    const spendingBudget = mockBudget({
+      id: 'b1', categoryId: 'c1', amount: 10000,
+      budgetType: 'SPENDING_LIMIT',
+      category: mockCategory({ id: 'c1', name: 'Food' }),
+    })
+    const savingsBudget = mockBudget({
+      id: 'b2', categoryId: 'c2', amount: 10000,
+      budgetType: 'SAVINGS_GOAL',
+      category: mockCategory({ id: 'c2', name: 'Savings' }),
+    })
+    prismaMock.budget.findMany.mockResolvedValue([savingsBudget, spendingBudget] as never)
+    // Both at 110%
+    prismaMock.transaction.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: -11000 } } as never)
+      .mockResolvedValueOnce({ _sum: { amount: -11000 } } as never)
+
+    const res = await GET(new Request('http://localhost/api/reports/budget-actual') as never)
+    const body = await res.json()
+
+    expect(body.data[0].categoryName).toBe('Food')
+    expect(body.data[1].categoryName).toBe('Savings')
   })
 
   it('returns 500 on DB error', async () => {

@@ -44,6 +44,22 @@ describe('getBudgetAlerts', () => {
     expect(getBudgetAlerts(budgets)).toHaveLength(0)
   })
 
+  it('skips SAVINGS_GOAL budgets regardless of percentage', () => {
+    const budgets = [
+      { id: '1', amount: 10000, spent: 12000, budgetType: 'SAVINGS_GOAL' as const, category: { name: 'Savings' } },
+    ]
+    expect(getBudgetAlerts(budgets)).toHaveLength(0)
+  })
+
+  it('still alerts on SPENDING_LIMIT budgets over 100%', () => {
+    const budgets = [
+      { id: '1', amount: 10000, spent: 12000, budgetType: 'SPENDING_LIMIT' as const, category: { name: 'Food' } },
+    ]
+    const alerts = getBudgetAlerts(budgets)
+    expect(alerts).toHaveLength(1)
+    expect(alerts[0].type).toBe('budget_over')
+  })
+
   it('returns alerts for multiple budgets', () => {
     const budgets = [
       { id: '1', amount: 10000, spent: 9000, category: { name: 'Food' } },   // 90% — warning
