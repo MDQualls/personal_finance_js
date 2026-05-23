@@ -48,7 +48,30 @@ export function SubscriptionsClient({ subscriptions, categories, totalMonthly, t
   const [editing, setEditing] = useState<Subscription | null>(null)
   const [tab, setTab] = useState<FilterTab>('active')
 
-  const visible = subscriptions.filter((s) => (tab === 'active' ? s.isActive : !s.isActive))
+  const visible = subscriptions
+    .filter((s) => (tab === 'active' ? s.isActive : !s.isActive))
+    .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())
+
+  // Dates are stored as UTC midnight. To avoid timezone shift on the client,
+  // always compare using UTC calendar values (getUTCFullYear etc.) rather than
+  // local values — otherwise a UTC date of May 23 renders as May 22 in US timezones.
+  function toUTCDay(date: Date | string): number {
+    const d = new Date(date)
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  }
+
+  const todayUTC = toUTCDay(new Date())
+
+  function dueStatus(sub: Subscription): 'overdue' | 'today' | 'soon' | 'upcoming' {
+    if (!sub.isActive) return 'upcoming'
+    const dueUTC = toUTCDay(sub.nextDueDate)
+    const daysUntil = (dueUTC - todayUTC) / (1000 * 60 * 60 * 24)
+    if (daysUntil < 0) return 'overdue'
+    if (daysUntil === 0) return 'today'
+    if (daysUntil <= sub.alertDays) return 'soon'
+    return 'upcoming'
+  }
+
   const cancelledCount = subscriptions.filter((s) => !s.isActive).length
 
   async function handleCancel(id: string, name: string) {
@@ -157,7 +180,14 @@ export function SubscriptionsClient({ subscriptions, categories, totalMonthly, t
                       </Badge>
                     </div>
                     <p className="text-[12px] text-[#6b7a8d] mt-0.5">
-                      {FREQ_LABELS[sub.frequency]} · {sub.isActive ? 'Due' : 'Was due'} {formatDisplay(sub.nextDueDate)}
+                      {FREQ_LABELS[sub.frequency]} ·{' '}
+                      {(() => {
+                        const status = dueStatus(sub)
+                        if (status === 'overdue') return <span className="text-[#ef4444] font-medium">Overdue since {formatDisplay(sub.nextDueDate)}</span>
+                        if (status === 'today')   return <span className="text-[#ef4444] font-medium">Due today</span>
+                        if (status === 'soon')    return <span className="text-[#f59e0b] font-medium">Due {formatDisplay(sub.nextDueDate)}</span>
+                        return <span>{sub.isActive ? 'Due' : 'Was due'} {formatDisplay(sub.nextDueDate)}</span>
+                      })()}
                     </p>
                   </div>
                 </div>

@@ -9,7 +9,7 @@ export function mockSubscription(overrides: Partial<Subscription> = {}): Subscri
     name: `Test Subscription ${counter}`,
     amount: 1499, // $14.99
     frequency: 'MONTHLY',
-    nextDueDate: new Date('2026-05-01T00:00:00Z'),
+    nextDueDate: new Date('2027-01-01T00:00:00Z'),
     categoryId: 'cuid_category_1',
     notes: null,
     isActive: true,

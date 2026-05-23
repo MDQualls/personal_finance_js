@@ -5,6 +5,10 @@ import { mockSubscription } from '@/__tests__/factories/subscription'
 import { mockCategory } from '@/__tests__/factories/category'
 
 describe('GET /api/subscriptions', () => {
+  beforeEach(() => {
+    prismaMock.subscription.update.mockResolvedValue({} as never)
+  })
+
   it('returns 401 when unauthenticated', async () => {
     noSession()
     const res = await GET(new Request('http://localhost/api/subscriptions') as never)
