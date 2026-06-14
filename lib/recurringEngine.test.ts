@@ -34,6 +34,22 @@ describe('postDueRecurringRules', () => {
     )
   })
 
+  it('increments account balance by the rule amount', async () => {
+    setupTransaction()
+    const rule = mockRecurringRule({ nextDate: pastDate, amount: -24037 })
+    prismaMock.recurringRule.findMany.mockResolvedValue([rule as never])
+    prismaMock.transaction.create.mockResolvedValue({} as never)
+    prismaMock.account.update.mockResolvedValue({} as never)
+    prismaMock.recurringRule.update.mockResolvedValue({} as never)
+
+    await postDueRecurringRules()
+
+    expect(prismaMock.account.update).toHaveBeenCalledWith({
+      where: { id: rule.accountId },
+      data: { balance: { increment: rule.amount } },
+    })
+  })
+
   it('advances nextDate by one frequency period after posting', async () => {
     setupTransaction()
     const rule = mockRecurringRule({ nextDate: pastDate, frequency: 'MONTHLY' })

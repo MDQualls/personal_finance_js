@@ -24,6 +24,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           notes: rule.notes ?? null,
         },
       })
+      await tx.account.update({
+        where: { id: rule.accountId },
+        data: { balance: { increment: rule.amount } },
+      })
       await tx.recurringRule.update({
         where: { id: rule.id },
         data: {
