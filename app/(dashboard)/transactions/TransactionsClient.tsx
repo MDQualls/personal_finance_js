@@ -65,6 +65,15 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
     fetchTransactions()
   }
 
+  async function handleValidate(id: string, isValidated: boolean) {
+    await fetch(`/api/transactions/${id}/validate`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isValidated }),
+    })
+    fetchTransactions()
+  }
+
   async function handleRestore(id: string) {
     await fetch(`/api/transactions/${id}`, {
       method: 'PATCH',
@@ -193,6 +202,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
                 onEdit={tab === 'active' ? () => setEditing(tx) : undefined}
                 onDelete={tab === 'active' ? handleDelete : undefined}
                 onRestore={tab === 'deleted' ? handleRestore : undefined}
+                onValidate={tab === 'active' ? handleValidate : undefined}
               />
             ))}
           </div>

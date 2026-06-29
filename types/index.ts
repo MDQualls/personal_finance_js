@@ -33,6 +33,7 @@ export type Transaction = {
   categoryId: string
   description: string
   notes: string | null
+  isValidated: boolean
   deletedAt: Date | null
   createdAt: Date
   updatedAt: Date

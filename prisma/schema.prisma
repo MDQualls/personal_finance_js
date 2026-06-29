@@ -80,16 +80,17 @@ model Category {
 }
 
 model Transaction {
-  id          String    @id @default(cuid())
-  accountId   String
-  amount      Int       // cents; positive = in, negative = out
-  date        DateTime
-  categoryId  String
-  description String
-  notes       String?
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  accountId    String
+  amount       Int       // cents; positive = in, negative = out
+  date         DateTime
+  categoryId   String
+  description  String
+  notes        String?
+  isValidated  Boolean   @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   account  Account  @relation(fields: [accountId], references: [id])
   category Category @relation(fields: [categoryId], references: [id])

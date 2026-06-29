@@ -12,6 +12,7 @@ export function mockTransaction(overrides: Partial<Transaction> = {}): Transacti
     categoryId: 'cuid_category_1',
     description: `MERCHANT ${counter}`,
     notes: null,
+    isValidated: false,
     deletedAt: null,
     createdAt: new Date('2026-04-01T00:00:00Z'),
     updatedAt: new Date('2026-04-01T00:00:00Z'),

@@ -15,12 +15,21 @@ interface TransactionRowProps {
   onDelete?: (id: string) => void
   onEdit?: () => void
   onRestore?: (id: string) => void
+  onValidate?: (id: string, isValidated: boolean) => Promise<void>
 }
 
-export function TransactionRow({ transaction, onDelete, onEdit, onRestore }: TransactionRowProps) {
+export function TransactionRow({ transaction, onDelete, onEdit, onRestore, onValidate }: TransactionRowProps) {
   const [deleting, setDeleting] = useState(false)
+  const [validating, setValidating] = useState(false)
   const isPositive = transaction.amount > 0
   const isDeleted = !!transaction.deletedAt
+
+  async function handleValidate(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!onValidate) return
+    setValidating(true)
+    await onValidate(transaction.id, e.target.checked)
+    setValidating(false)
+  }
 
   async function handleDelete() {
     if (!confirm('Delete this transaction?')) return
@@ -30,7 +39,11 @@ export function TransactionRow({ transaction, onDelete, onEdit, onRestore }: Tra
   }
 
   return (
-    <div className={`group flex items-center justify-between px-5 py-3 hover:bg-[#f8fafc] transition-colors ${isDeleted ? 'opacity-60' : ''}`}>
+    <div
+      className={`group flex items-center justify-between px-5 py-3 transition-colors ${
+        transaction.isValidated ? 'bg-[#f0fdf9]' : 'hover:bg-[#f8fafc]'
+      } ${isDeleted ? 'opacity-60' : ''}`}
+    >
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div
           className="w-8 h-8 rounded-[8px] flex-shrink-0 flex items-center justify-center text-white text-[12px]"
@@ -71,6 +84,19 @@ export function TransactionRow({ transaction, onDelete, onEdit, onRestore }: Tra
         >
           {isPositive ? '+' : ''}{formatCurrency(transaction.amount)}
         </p>
+
+        {onValidate && !isDeleted && (
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={transaction.isValidated}
+              onChange={handleValidate}
+              disabled={validating}
+              className="w-3.5 h-3.5 rounded accent-[#00b89c] cursor-pointer disabled:cursor-wait"
+            />
+            <span className="text-[12px] text-[#6b7a8d]">Validated</span>
+          </label>
+        )}
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {onRestore ? (
