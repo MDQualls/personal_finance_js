@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Upload, Search, ArrowLeftRight } from 'lucide-react'
+import { Plus, Upload, Download, Search, ArrowLeftRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Modal } from '@/components/ui/Modal'
 import { TransactionRow } from '@/components/ui/TransactionRow'
 import { TransactionForm } from '@/components/forms/TransactionForm'
+import { ExportTransactionsModal } from '@/components/ui/ExportTransactionsModal'
 import type { Transaction, Account, Category, Tag } from '@/types'
 
 type FilterTab = 'active' | 'deleted'
@@ -26,6 +27,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<FilterTab>('active')
   const [showAdd, setShowAdd] = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [search, setSearch] = useState('')
   const [accountFilter, setAccountFilter] = useState('')
@@ -142,8 +144,12 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
 
         {tab === 'active' && (
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button variant="secondary" size="sm" onClick={() => window.location.href = '/transactions/import'}>
+            <Button variant="secondary" size="sm" onClick={() => setShowExport(true)}>
               <Upload size={14} strokeWidth={1.5} />
+              Export CSV
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => window.location.href = '/transactions/import'}>
+              <Download size={14} strokeWidth={1.5} />
               Import CSV
             </Button>
             <Button size="sm" onClick={() => setShowAdd(true)}>
@@ -205,6 +211,13 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
           </Button>
         </div>
       )}
+
+      <ExportTransactionsModal
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        accounts={accounts}
+        categories={categories}
+      />
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Transaction">
         <TransactionForm
