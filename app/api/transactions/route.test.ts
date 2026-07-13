@@ -51,6 +51,55 @@ describe('GET /api/transactions', () => {
     expect(prismaMock.$transaction).toHaveBeenCalled()
   })
 
+  it('applies from date filter', async () => {
+    mockSession()
+    prismaMock.$transaction.mockResolvedValue([[], 0])
+
+    const from = '2026-07-01T00:00:00.000Z'
+    const req = new Request(`http://localhost/api/transactions?from=${from}`)
+    await GET(req as never)
+
+    const findArgs = prismaMock.transaction.findMany.mock.calls[0][0] as any
+    expect(findArgs.where.date.gte).toEqual(new Date(from))
+  })
+
+  it('applies to date filter', async () => {
+    mockSession()
+    prismaMock.$transaction.mockResolvedValue([[], 0])
+
+    const to = '2026-07-31T23:59:59.999Z'
+    const req = new Request(`http://localhost/api/transactions?to=${to}`)
+    await GET(req as never)
+
+    const findArgs = prismaMock.transaction.findMany.mock.calls[0][0] as any
+    expect(findArgs.where.date.lte).toEqual(new Date(to))
+  })
+
+  it('applies both from and to for a month range', async () => {
+    mockSession()
+    prismaMock.$transaction.mockResolvedValue([[], 0])
+
+    const from = '2026-07-01T00:00:00.000Z'
+    const to = '2026-07-31T23:59:59.999Z'
+    const req = new Request(`http://localhost/api/transactions?from=${from}&to=${to}`)
+    await GET(req as never)
+
+    const findArgs = prismaMock.transaction.findMany.mock.calls[0][0] as any
+    expect(findArgs.where.date.gte).toEqual(new Date(from))
+    expect(findArgs.where.date.lte).toEqual(new Date(to))
+  })
+
+  it('omits date filter when neither from nor to is provided', async () => {
+    mockSession()
+    prismaMock.$transaction.mockResolvedValue([[], 0])
+
+    const req = new Request('http://localhost/api/transactions')
+    await GET(req as never)
+
+    const findArgs = prismaMock.transaction.findMany.mock.calls[0][0] as any
+    expect(findArgs.where.date).toBeUndefined()
+  })
+
   it('returns 500 on DB error', async () => {
     mockSession()
     prismaMock.$transaction.mockRejectedValue(new Error('DB error'))

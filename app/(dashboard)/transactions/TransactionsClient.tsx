@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { startOfMonth, endOfMonth } from 'date-fns'
 import { Plus, Upload, Download, Search, ArrowLeftRight } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -32,6 +33,8 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
   const [search, setSearch] = useState('')
   const [accountFilter, setAccountFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [yearFilter, setYearFilter] = useState<number | ''>(new Date().getFullYear())
+  const [monthFilter, setMonthFilter] = useState<number | ''>(new Date().getMonth() + 1)
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true)
@@ -42,6 +45,17 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
       if (accountFilter) params.set('accountId', accountFilter)
       if (categoryFilter) params.set('categoryId', categoryFilter)
 
+      if (yearFilter !== '') {
+        if (monthFilter !== '') {
+          const base = new Date(yearFilter, monthFilter - 1, 1)
+          params.set('from', startOfMonth(base).toISOString())
+          params.set('to', endOfMonth(base).toISOString())
+        } else {
+          params.set('from', new Date(yearFilter, 0, 1).toISOString())
+          params.set('to', new Date(yearFilter, 11, 31, 23, 59, 59, 999).toISOString())
+        }
+      }
+
       const res = await fetch(`/api/transactions?${params}`)
       const body = await res.json()
       if (res.ok) {
@@ -51,7 +65,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [page, tab, search, accountFilter, categoryFilter])
+  }, [page, tab, search, accountFilter, categoryFilter, yearFilter, monthFilter])
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
@@ -149,6 +163,30 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
               </optgroup>
             ))}
           </select>
+
+          <select
+            value={yearFilter}
+            onChange={(e) => { setYearFilter(e.target.value === '' ? '' : Number(e.target.value)); setPage(1) }}
+            className="h-[36px] px-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] bg-white outline-none focus:border-[#00b89c] cursor-pointer"
+          >
+            <option value="">All Years</option>
+            {Array.from({ length: new Date().getFullYear() - 2019 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+
+          {yearFilter !== '' && (
+            <select
+              value={monthFilter}
+              onChange={(e) => { setMonthFilter(e.target.value === '' ? '' : Number(e.target.value)); setPage(1) }}
+              className="h-[36px] px-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] bg-white outline-none focus:border-[#00b89c] cursor-pointer"
+            >
+              <option value="">All Months</option>
+              {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
+                <option key={i + 1} value={i + 1}>{m}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {tab === 'active' && (
