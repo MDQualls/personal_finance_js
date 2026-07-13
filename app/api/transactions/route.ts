@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get('from') ?? undefined
   const to = searchParams.get('to') ?? undefined
   const showDeleted = searchParams.get('showDeleted') === 'true'
+  const excludeTransfers = searchParams.get('excludeTransfers') === 'true'
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
   const skip = (page - 1) * limit
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
   try {
     const where = {
       deletedAt: showDeleted ? { not: null } : null,
+      ...(excludeTransfers ? { isTransfer: false } : {}),
       ...(accountId ? { accountId } : {}),
       ...(categoryId ? { categoryId } : {}),
       ...(tagId ? { tags: { some: { id: tagId } } } : {}),
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
     const [transactions, total] = await prisma.$transaction([
       prisma.transaction.findMany({
         where,
-        include: { category: true, tags: true, account: true },
+        include: { category: true, tags: true, account: true, transferFrom: true, transferTo: true },
         orderBy: showDeleted ? { deletedAt: 'desc' } : { date: 'desc' },
         skip,
         take: limit,

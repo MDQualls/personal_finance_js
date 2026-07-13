@@ -34,12 +34,33 @@ export type Transaction = {
   description: string
   notes: string | null
   isValidated: boolean
+  isTransfer: boolean
   deletedAt: Date | null
   createdAt: Date
   updatedAt: Date
   category?: Category
   tags?: Tag[]
   account?: Account
+  transferFrom?: Transfer
+  transferTo?: Transfer
+}
+
+export type Transfer = {
+  id: string
+  fromTransactionId: string
+  toTransactionId: string
+  note: string | null
+  createdAt: Date
+  updatedAt: Date
+  fromTransaction?: Transaction
+  toTransaction?: Transaction
+}
+
+export type TransferCandidate = {
+  confidence: 'high' | 'medium'
+  fromTransaction: Transaction
+  toTransaction: Transaction
+  reason: string
 }
 
 export type Budget = {

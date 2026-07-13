@@ -13,6 +13,7 @@ export function mockTransaction(overrides: Partial<Transaction> = {}): Transacti
     description: `MERCHANT ${counter}`,
     notes: null,
     isValidated: false,
+    isTransfer: false,
     deletedAt: null,
     createdAt: new Date('2026-04-01T00:00:00Z'),
     updatedAt: new Date('2026-04-01T00:00:00Z'),

@@ -3,11 +3,15 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useState } from 'react'
+import { ArrowLeftRight } from 'lucide-react'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
-import { toCents, toDollars } from '@/lib/money'
-import type { Account, Category } from '@/types'
+import { Modal } from '@/components/ui/Modal'
+import { toCents, toDollars, formatCurrency } from '@/lib/money'
+import { formatDisplay } from '@/lib/dates'
+import type { Account, Category, Transaction } from '@/types'
 
 const schema = z.object({
   accountId: z.string().min(1, 'Account is required'),
@@ -30,6 +34,7 @@ type InitialValues = {
   categoryId: string
   description: string
   notes: string | null
+  isTransfer?: boolean
 }
 
 interface TransactionFormProps {
@@ -41,6 +46,53 @@ interface TransactionFormProps {
 
 export function TransactionForm({ accounts, categories, initialValues, onSuccess }: TransactionFormProps) {
   const isEditing = !!initialValues
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkCandidates, setLinkCandidates] = useState<Transaction[]>([])
+  const [linking, setLinking] = useState(false)
+
+  async function openLinkModal() {
+    if (!initialValues) return
+    // Fetch transactions that are equal/opposite amount, different account, not yet a transfer
+    const params = new URLSearchParams({
+      limit: '50',
+      excludeTransfers: 'true',
+    })
+    const res = await fetch(`/api/transactions?${params}`)
+    const body = await res.json()
+    const all: Transaction[] = body.data ?? []
+    const targetAmount = -initialValues.amount // opposite sign
+    const baseDate = new Date(initialValues.date).getTime()
+    const FIVE_DAYS = 5 * 24 * 60 * 60 * 1000
+    const compatible = all.filter(
+      (tx) =>
+        tx.id !== initialValues.id &&
+        tx.accountId !== initialValues.accountId &&
+        tx.amount === targetAmount &&
+        Math.abs(new Date(tx.date).getTime() - baseDate) <= FIVE_DAYS
+    )
+    setLinkCandidates(compatible)
+    setShowLinkModal(true)
+  }
+
+  async function handleLinkTransfer(toTx: Transaction) {
+    if (!initialValues) return
+    setLinking(true)
+    try {
+      const fromId = initialValues.amount < 0 ? initialValues.id : toTx.id
+      const toId = initialValues.amount < 0 ? toTx.id : initialValues.id
+      const res = await fetch('/api/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromTransactionId: fromId, toTransactionId: toId }),
+      })
+      if (res.ok) {
+        setShowLinkModal(false)
+        onSuccess?.()
+      }
+    } finally {
+      setLinking(false)
+    }
+  }
 
   const {
     register,
@@ -162,11 +214,55 @@ export function TransactionForm({ accounts, categories, initialValues, onSuccess
         />
       </div>
 
-      <div className="flex justify-end pt-2">
-        <Button type="submit" loading={isSubmitting}>
-          {isEditing ? 'Save Changes' : 'Save Transaction'}
-        </Button>
+      <div className="flex items-center justify-between pt-2">
+        {isEditing && !initialValues?.isTransfer && (
+          <button
+            type="button"
+            onClick={openLinkModal}
+            className="flex items-center gap-1.5 text-[13px] text-[#6b7a8d] hover:text-[#00b89c] transition-colors"
+          >
+            <ArrowLeftRight size={14} strokeWidth={1.5} />
+            Link as Transfer
+          </button>
+        )}
+        <div className="ml-auto">
+          <Button type="submit" loading={isSubmitting}>
+            {isEditing ? 'Save Changes' : 'Save Transaction'}
+          </Button>
+        </div>
       </div>
+
+      <Modal open={showLinkModal} onClose={() => setShowLinkModal(false)} title="Link as Transfer">
+        {linkCandidates.length === 0 ? (
+          <p className="text-[14px] text-[#6b7a8d] py-4 text-center">
+            No compatible transactions found within ±5 days on a different account.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-[13px] text-[#6b7a8d] mb-3">
+              Select the matching transaction to link as a transfer pair.
+            </p>
+            {linkCandidates.map((tx) => (
+              <button
+                key={tx.id}
+                onClick={() => handleLinkTransfer(tx)}
+                disabled={linking}
+                className="w-full flex items-center justify-between p-3 rounded-[8px] border border-[#e8ecf0] hover:border-[#00b89c] hover:bg-[#e6f7f5] transition-colors text-left disabled:opacity-50"
+              >
+                <div>
+                  <p className="text-[13px] font-medium text-[#1a2332]">{tx.description}</p>
+                  <p className="text-[12px] text-[#6b7a8d]">
+                    {tx.account?.name} · {formatDisplay(tx.date)}
+                  </p>
+                </div>
+                <span className="text-[13px] font-semibold font-tabular text-[#22c55e]">
+                  +{formatCurrency(tx.amount)}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </Modal>
     </form>
   )
 }

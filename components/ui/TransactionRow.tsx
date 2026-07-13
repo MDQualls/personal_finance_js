@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Trash2, Pencil, RotateCcw } from 'lucide-react'
+import { Trash2, Pencil, RotateCcw, ArrowLeftRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/money'
 import { formatDisplay } from '@/lib/dates'
 import type { Transaction } from '@/types'
@@ -16,13 +16,16 @@ interface TransactionRowProps {
   onEdit?: () => void
   onRestore?: (id: string) => void
   onValidate?: (id: string, isValidated: boolean) => Promise<void>
+  onUnlink?: (id: string) => Promise<void>
 }
 
-export function TransactionRow({ transaction, onDelete, onEdit, onRestore, onValidate }: TransactionRowProps) {
+export function TransactionRow({ transaction, onDelete, onEdit, onRestore, onValidate, onUnlink }: TransactionRowProps) {
   const [deleting, setDeleting] = useState(false)
   const [validating, setValidating] = useState(false)
+  const [unlinking, setUnlinking] = useState(false)
   const isPositive = transaction.amount > 0
   const isDeleted = !!transaction.deletedAt
+  const isTransfer = transaction.isTransfer
 
   async function handleValidate(e: React.ChangeEvent<HTMLInputElement>) {
     if (!onValidate) return
@@ -38,20 +41,40 @@ export function TransactionRow({ transaction, onDelete, onEdit, onRestore, onVal
     setDeleting(false)
   }
 
+  async function handleUnlink() {
+    if (!onUnlink) return
+    setUnlinking(true)
+    await onUnlink(transaction.id)
+    setUnlinking(false)
+  }
+
   return (
     <div
       className={`group flex items-center justify-between px-5 py-3 transition-colors ${
-        transaction.isValidated ? 'bg-[#f0fdf9]' : 'hover:bg-[#f8fafc]'
+        isTransfer
+          ? 'opacity-60 hover:opacity-80'
+          : transaction.isValidated
+          ? 'bg-[#f0fdf9]'
+          : 'hover:bg-[#f8fafc]'
       } ${isDeleted ? 'opacity-60' : ''}`}
     >
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div
-          className="w-8 h-8 rounded-[8px] flex-shrink-0 flex items-center justify-center text-white text-[12px]"
-          style={{ backgroundColor: transaction.category?.color ?? '#6b7a8d' }}
-          title={transaction.category?.name}
-        >
-          {(transaction.category?.name ?? 'U')[0]}
-        </div>
+        {isTransfer ? (
+          <div
+            className="w-8 h-8 rounded-[8px] flex-shrink-0 flex items-center justify-center bg-[#f4f6f9]"
+            title="Transfer"
+          >
+            <ArrowLeftRight size={14} strokeWidth={1.5} className="text-[#6b7a8d]" />
+          </div>
+        ) : (
+          <div
+            className="w-8 h-8 rounded-[8px] flex-shrink-0 flex items-center justify-center text-white text-[12px]"
+            style={{ backgroundColor: transaction.category?.color ?? '#6b7a8d' }}
+            title={transaction.category?.name}
+          >
+            {(transaction.category?.name ?? 'U')[0]}
+          </div>
+        )}
 
         <div className="min-w-0">
           <p className="text-[14px] font-medium text-[#1a2332] truncate">
@@ -61,8 +84,12 @@ export function TransactionRow({ transaction, onDelete, onEdit, onRestore, onVal
             <p className="text-[12px] text-[#6b7a8d]">
               {formatDisplay(transaction.date)}
             </p>
-            {transaction.category && (
-              <span className="text-[12px] text-[#6b7a8d]">· {transaction.category.name}</span>
+            {isTransfer ? (
+              <span className="text-[12px] text-[#6b7a8d]">· Transfer</span>
+            ) : (
+              transaction.category && (
+                <span className="text-[12px] text-[#6b7a8d]">· {transaction.category.name}</span>
+              )
             )}
             {transaction.account && (
               <span className="text-[12px] text-[#6b7a8d]">· {transaction.account.name}</span>
@@ -110,6 +137,17 @@ export function TransactionRow({ transaction, onDelete, onEdit, onRestore, onVal
             </button>
           ) : (
             <>
+              {isTransfer && onUnlink && (
+                <button
+                  onClick={handleUnlink}
+                  disabled={unlinking}
+                  className="h-7 flex items-center gap-1.5 px-2 rounded-[6px] text-[12px] font-medium text-[#6b7a8d] hover:text-[#1a2332] hover:bg-[#f4f6f9] transition-colors disabled:cursor-wait"
+                  title="Unlink transfer"
+                >
+                  <ArrowLeftRight size={13} strokeWidth={1.5} />
+                  Unlink
+                </button>
+              )}
               {onEdit && (
                 <button
                   onClick={onEdit}

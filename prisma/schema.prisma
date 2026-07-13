@@ -88,13 +88,28 @@ model Transaction {
   description  String
   notes        String?
   isValidated  Boolean   @default(false)
+  isTransfer   Boolean   @default(false)
   deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  account  Account  @relation(fields: [accountId], references: [id])
-  category Category @relation(fields: [categoryId], references: [id])
-  tags     Tag[]    @relation("TransactionTags")
+  account      Account   @relation(fields: [accountId], references: [id])
+  category     Category  @relation(fields: [categoryId], references: [id])
+  tags         Tag[]     @relation("TransactionTags")
+  transferFrom Transfer? @relation("TransferFrom")
+  transferTo   Transfer? @relation("TransferTo")
+}
+
+model Transfer {
+  id                String   @id @default(cuid())
+  fromTransactionId String   @unique
+  toTransactionId   String   @unique
+  note              String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  fromTransaction Transaction @relation("TransferFrom", fields: [fromTransactionId], references: [id])
+  toTransaction   Transaction @relation("TransferTo",   fields: [toTransactionId],   references: [id])
 }
 
 model Budget {
