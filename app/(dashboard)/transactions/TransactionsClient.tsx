@@ -36,7 +36,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [yearFilter, setYearFilter] = useState<number | ''>(new Date().getFullYear())
   const [monthFilter, setMonthFilter] = useState<number | ''>(new Date().getMonth() + 1)
-  const [showTransfers, setShowTransfers] = useState(false)
+  const [hideTransfers, setHideTransfers] = useState(false)
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true)
@@ -46,7 +46,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
       if (search) params.set('search', search)
       if (accountFilter) params.set('accountId', accountFilter)
       if (categoryFilter) params.set('categoryId', categoryFilter)
-      if (!showTransfers) params.set('excludeTransfers', 'true')
+      if (hideTransfers) params.set('excludeTransfers', 'true')
 
       if (yearFilter !== '') {
         if (monthFilter !== '') {
@@ -68,7 +68,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [page, tab, search, accountFilter, categoryFilter, yearFilter, monthFilter, showTransfers])
+  }, [page, tab, search, accountFilter, categoryFilter, yearFilter, monthFilter, hideTransfers])
 
   useEffect(() => { fetchTransactions() }, [fetchTransactions])
 
@@ -202,14 +202,14 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
 
           {tab === 'active' && (
             <button
-              onClick={() => { setShowTransfers((v) => !v); setPage(1) }}
+              onClick={() => { setHideTransfers((v) => !v); setPage(1) }}
               className={`h-[36px] px-3 rounded-[8px] border text-[13px] font-medium transition-colors ${
-                showTransfers
+                hideTransfers
                   ? 'border-[#00b89c] bg-[#e6f7f5] text-[#00b89c]'
                   : 'border-[#e8ecf0] bg-white text-[#6b7a8d] hover:border-[#00b89c] hover:text-[#00b89c]'
               }`}
             >
-              Transfers
+              Hide Transfers
             </button>
           )}
         </div>
@@ -232,8 +232,8 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
         )}
       </div>
 
-      {/* Transfer suggestions */}
-      {tab === 'active' && (
+      {/* Transfer suggestions — shown when transfers are not hidden */}
+      {tab === 'active' && !hideTransfers && (
         <TransferSuggestionsPanel onTransferConfirmed={fetchTransactions} />
       )}
 
