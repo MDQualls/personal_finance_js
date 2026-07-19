@@ -13,7 +13,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 | 5 | Reconciliation Guard (recurring engine + autoPost validation) | Complete | Phase 4 |
 | 6 | Category Mapping & Amount Convention | Complete | Phase 4, Phase 2 |
 | 7 | Frontend (Connect button, connections settings pages) | Complete | Phase 4 |
-| 8 | Automated Tests | Not Started | Phases 2–7 |
+| 8 | Automated Tests | Complete | Phases 2–7 |
 | 9 | Sandbox End-to-End Verification | Not Started | Phase 8 + user Phase A/B (`PLAID_SETUP_CHECKLIST.md`) |
 | 10 | Production Cutover (DB clear + real bank connections) | Not Started | Phase 9 + user Phase C (`PLAID_SETUP_CHECKLIST.md`) |
 | 11 | Documentation & Closeout | Not Started | Phase 10 |
@@ -174,17 +174,27 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 - **Caught mid-session:** clicking Disconnect triggers a native `confirm()` dialog, which froze browser automation (a known limitation of the testing tool, not a bug — `confirm()` for destructive actions is this codebase's established pattern, used identically in accounts, budgets, subscriptions, recurring, tags, rules, and transactions). User manually dismissed it to unblock.
 - `tsc --noEmit` clean, `prisma validate` clean, full suite still green (424/424, no test changes needed — still Phase 8 scope, and no Plaid UI components have tests yet either)
 
-## Phase 8 — Automated Tests
-- [ ] `lib/crypto.test.ts`
-- [ ] `app/api/plaid/link-token/route.test.ts`
-- [ ] `app/api/plaid/exchange-token/route.test.ts`
-- [ ] `app/api/plaid/sync/route.test.ts`
-- [ ] `app/api/plaid/items/route.test.ts` (+ `[id]` DELETE)
-- [ ] `lib/recurringEngine.test.ts` updated — asserts `plaidManaged: false` filter present
-- [ ] `app/api/transactions/review/route.test.ts`
-- [ ] `app/api/transactions/[id]/review/route.test.ts`
-- [ ] Report/budget/insight route tests updated — assert `needsReview: false` present in queries
-- [ ] Full suite green (`npx jest`)
+## Phase 8 — Automated Tests ✓
+**Status:** Complete — 2026-07-19
+- [x] `lib/crypto.test.ts` — already existed (added early in Phase 3 for security-criticality reasons)
+- [x] `app/api/plaid/link-token/route.test.ts` — 100% coverage
+- [x] `app/api/plaid/exchange-token/route.test.ts` — 100% coverage
+- [x] `app/api/plaid/sync/route.test.ts` — 100% coverage (15 tests: auth, validation, 404, amount sign conversion both directions, unmapped-account skip, category map hit/fallback/no-category-at-all/missing-Uncategorized-500, removed-transaction soft-delete, pagination, balance sync incl. null-balance skip, general 500)
+- [x] `app/api/plaid/items/route.test.ts` (GET) — 100% coverage, includes an explicit assertion that `accessToken` never appears in the JSON response
+- [x] `app/api/plaid/items/[id]/route.test.ts` (DELETE) — 100% coverage
+- [x] `app/api/plaid/accounts/[id]/route.test.ts` (PATCH, Phase 7 addition not in the original checklist) — 100% coverage, both the link-existing and create-new branches
+- [x] `lib/recurringEngine.test.ts` — added the missing assertion for the `plaidManaged: false` filter (guard itself shipped in Phase 5, no test explicitly checked for it until now)
+- [x] `app/api/recurring/route.test.ts` — added the missing 422-rejection test for `autoPost: true` on a Plaid-managed account, plus a test confirming `autoPost: false` is allowed (guard shipped in Phase 5, same gap as above)
+- [x] Two new factories: `__tests__/factories/plaidItem.ts`, `__tests__/factories/plaidAccount.ts`
+- [x] Full suite green: 464/464 (up from 424 — 40 new tests)
+
+**Skipped, deliberately:**
+- `app/api/transactions/review/route.test.ts` and `app/api/transactions/[id]/review/route.test.ts` — these routes were never built. Phase 2 reused the existing `GET /api/transactions` (`needsReview=true` filter param) and `PATCH /api/transactions/[id]` instead, and both already have test coverage for that behavior from Phase 2. This checklist item predates that decision and is stale.
+- Report/budget/insight `needsReview: false` test assertions — already added in Phase 2 (`reports/budget-actual`, `budgets`, `insights/generate` route tests). Nothing new needed.
+- Component tests for `ConnectAccountButton`, `ConnectionsClient`, `ConnectionMappingClient` — matches this codebase's established convention: page-level `*Client.tsx` orchestration components (`AccountsClient`, `BudgetsClient`, `SubscriptionsClient`, `RecurringClient`, etc.) have never had tests, only small reusable primitives (`TransactionRow`, `BudgetProgress`) do. These three fit the former pattern. Their actual business logic (token exchange, account creation/linking, sync/disconnect) is already covered by the API route tests.
+
+**Coverage note:** the global coverage gate in `jest.config.js` (80% lines/statements/branches/functions) was already failing before this phase — confirmed via `git stash` comparison against the Phase 7 commit: 52.74%/45.74%/42.8%/52.91% baseline, now 61.2%/49.68%/47.48%/61.31% after Phase 8's additions. This is pre-existing, project-wide tech debt (most page-level components across the whole app, not just Plaid, have no tests) — not something this phase introduced, and fixing it is out of scope for a Plaid-focused phase. The pre-commit hook already runs `--no-coverage`, so this has never actually gated anything. Worth a BACKLOG.md entry if the user wants it enforced for real.
+- [x] `tsc --noEmit` clean, all 6 Plaid API routes individually verified at 98.6–100% coverage (well above the 90% CLAUDE.md bar for API route handlers)
 
 ## Phase 9 — Sandbox End-to-End Verification
 - [ ] User completes `PLAID_SETUP_CHECKLIST.md` Phase A (dev account, sandbox keys, encryption key)
@@ -225,4 +235,13 @@ _(append here as work progresses)_
 
 **2026-07-19 — Phase 6 complete:** Built `lib/plaidCategories.ts` with a real `PLAID_CATEGORY_MAP` covering 12 of Plaid's 16 primary categories, mapped against the actual category names in `prisma/seed.ts` (corrected from PLAID.md's illustrative names, which don't match). `resolveCategoryId()` in the sync route now does an exact match against the mapped name instead of the old fuzzy `contains` placeholder. 4 Plaid categories have no local equivalent yet and intentionally fall back to Uncategorized — noted in the Phase 6 section above. 424 tests still green, `tsc --noEmit` clean, no test changes needed. Committed as `b763033`.
 
-**2026-07-19 — Phase 7 complete:** Built the full frontend: `ConnectAccountButton`, `/settings/connections` (list/sync/disconnect), `/settings/connections/[id]` (map Plaid accounts to local accounts), sidebar nav entry, and CSP updates for Plaid Link. Added a route not in the original spec — `PATCH /api/plaid/accounts/[id]` — since PLAID.md's Phase 7 checklist never specified what actually performs the account mapping. **This phase got a real browser click-through** (Chrome extension connected mid-session), not just `tsc`/tests — see the Phase 7 section above for the full verification list, including a live end-to-end test of account creation via the mapping UI (real `Account` row created with `plaidManaged: true`). One incident: the Disconnect button's `confirm()` dialog froze browser automation — expected tool behavior, not a code bug, and the user dismissed it manually. Test DB rows were cleaned up after verification. 424 tests still green, `tsc --noEmit` and `prisma validate` clean. Not yet committed — awaiting user review. **Next session: Phase 8 — Automated Tests** (test coverage for all 6 Plaid API routes, the new frontend components, and updated `recurringEngine.test.ts` asserting the `plaidManaged` filter).
+**2026-07-19 — Phase 7 complete:** Built the full frontend: `ConnectAccountButton`, `/settings/connections` (list/sync/disconnect), `/settings/connections/[id]` (map Plaid accounts to local accounts), sidebar nav entry, and CSP updates for Plaid Link. Added a route not in the original spec — `PATCH /api/plaid/accounts/[id]` — since PLAID.md's Phase 7 checklist never specified what actually performs the account mapping. **This phase got a real browser click-through** (Chrome extension connected mid-session), not just `tsc`/tests — see the Phase 7 section above for the full verification list, including a live end-to-end test of account creation via the mapping UI (real `Account` row created with `plaidManaged: true`). One incident: the Disconnect button's `confirm()` dialog froze browser automation — expected tool behavior, not a code bug, and the user dismissed it manually. Test DB rows were cleaned up after verification. 424 tests still green, `tsc --noEmit` and `prisma validate` clean. Committed as `b238a27`.
+
+**2026-07-19 — Phase 8 complete:** Wrote tests for all 6 Plaid API routes (98.6–100% coverage each), closed two test gaps from earlier phases (`recurringEngine.test.ts`'s `plaidManaged` filter assertion, `POST /api/recurring`'s 422 rejection test — both guards shipped in Phase 5 without accompanying tests at the time), and added 2 new factories. 464/464 tests green, `tsc --noEmit` clean. Skipped 3 stale checklist items that referenced routes never actually built (Phase 2 reused existing routes instead) and deliberately skipped component tests for the 3 new frontend pieces, matching this codebase's established convention of not testing page-level `*Client.tsx` components. Confirmed via `git stash` that the project's 80% global coverage gate was already failing before this phase (52.7% baseline) — pre-existing, project-wide, out of scope here; noted for a possible future BACKLOG.md item. Not yet committed — awaiting user review.
+
+**P4-1 is now fully code-complete through Phase 8.** Remaining phases are no longer "build more code" — they're verification and go-live:
+- **Phase 9 — Sandbox Verification**: blocked on the user completing `PLAID_SETUP_CHECKLIST.md` Phase A (Plaid dev account, sandbox keys, `ENCRYPTION_KEY` in `.env.local`) — quick, ~10 min, no real bank credentials needed.
+- **Phase 10 — Production Cutover**: real bank connections, and a destructive DB clear that needs explicit re-confirmation when it comes up.
+- **Phase 11 — Documentation & Closeout**.
+
+**Next session:** check whether the user has completed Phase A of `PLAID_SETUP_CHECKLIST.md`. If yes, proceed to Phase 9 (Sandbox Link → exchange → sync flow with Plaid's `user_good`/`pass_good` test credentials, plus an error-state login test). If not yet, Phase 8 was the last "no dependencies" phase — there's nothing further to build without it.

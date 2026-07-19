@@ -121,6 +121,18 @@ describe('postDueRecurringRules', () => {
     )
   })
 
+  it('never auto-posts to Plaid-managed accounts', async () => {
+    prismaMock.recurringRule.findMany.mockResolvedValue([])
+
+    await postDueRecurringRules()
+
+    expect(prismaMock.recurringRule.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ account: { plaidManaged: false } }),
+      })
+    )
+  })
+
   it('reports errors without stopping other rules from posting', async () => {
     setupTransaction()
     const failingRule = mockRecurringRule({ id: 'rule_fail', name: 'Failing Rule', nextDate: pastDate })

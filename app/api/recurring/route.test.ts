@@ -163,4 +163,32 @@ describe('POST /api/recurring', () => {
 
     expect(res.status).toBe(500)
   })
+
+  it('rejects autoPost: true on a Plaid-managed account with 422', async () => {
+    mockSession()
+    prismaMock.account.findUnique.mockResolvedValue({ plaidManaged: true } as never)
+
+    const req = new Request('http://localhost/api/recurring', {
+      method: 'POST',
+      body: JSON.stringify(VALID_PAYLOAD),
+    })
+    const res = await POST(req as never)
+
+    expect(res.status).toBe(422)
+    expect(prismaMock.recurringRule.create).not.toHaveBeenCalled()
+  })
+
+  it('allows autoPost: false on a Plaid-managed account', async () => {
+    mockSession()
+    prismaMock.account.findUnique.mockResolvedValue({ plaidManaged: true } as never)
+    prismaMock.recurringRule.create.mockResolvedValue(mockRecurringRule({ autoPost: false }) as never)
+
+    const req = new Request('http://localhost/api/recurring', {
+      method: 'POST',
+      body: JSON.stringify({ ...VALID_PAYLOAD, autoPost: false }),
+    })
+    const res = await POST(req as never)
+
+    expect(res.status).toBe(200)
+  })
 })
