@@ -11,7 +11,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 | 3 | Core Infrastructure (Plaid client, encryption) | Complete | Phase 1 |
 | 4 | API Routes (link-token, exchange-token, sync, items) | Complete | Phase 3 |
 | 5 | Reconciliation Guard (recurring engine + autoPost validation) | Complete | Phase 4 |
-| 6 | Category Mapping & Amount Convention | Not Started | Phase 4, Phase 2 |
+| 6 | Category Mapping & Amount Convention | Complete | Phase 4, Phase 2 |
 | 7 | Frontend (Connect button, connections settings pages) | Not Started | Phase 4 |
 | 8 | Automated Tests | Not Started | Phases 2–7 |
 | 9 | Sandbox End-to-End Verification | Not Started | Phase 8 + user Phase A/B (`PLAID_SETUP_CHECKLIST.md`) |
@@ -142,9 +142,15 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 **Known gap — not closed this phase, flagging so it isn't forgotten:** `PATCH /api/recurring/[id]` does **not** enforce the `plaidManaged` guard. A rule could still be edited after creation to set `autoPost: true` on (or reassign to) a Plaid-managed account and bypass the check. Scoped out because: (1) the phase checklist only names `POST /api/recurring`, and (2) `app/api/recurring/[id]/route.test.ts`'s existing PATCH tests don't stub a rule/account lookup, so adding the fetch-then-validate logic needed for PATCH would require rewriting those tests rather than just extending them — treated as Phase 8 scope instead of expanding Phase 5 unprompted. Worth closing before Phase 10 (production cutover) actually connects real accounts.
 - [x] `tsc --noEmit` clean, full suite still green (424/424, no test changes needed — existing mocks already covered the new code paths). `prisma validate` clean.
 
-## Phase 6 — Category Mapping & Amount Convention
-- [ ] `lib/plaidCategories.ts` — `PLAID_CATEGORY_MAP`
-- [ ] Amount sign conversion applied correctly in sync route (Plaid positive = expense → our negative)
+## Phase 6 — Category Mapping & Amount Convention ✓
+**Status:** Complete — 2026-07-19
+- [x] `lib/plaidCategories.ts` — `PLAID_CATEGORY_MAP`, mapping Plaid's 16-value `personal_finance_category.primary` taxonomy to the actual local category names seeded in `prisma/seed.ts` (not the illustrative names from PLAID.md's example, which don't match this app's real categories — e.g. `MEDICAL` → `'Health & Medical'` not `'Healthcare'`, `TRANSFER_IN`/`TRANSFER_OUT` → `'Transfers'` not `'Transfer'`)
+- [x] Amount sign conversion — already done in Phase 4 (`toLocalAmountCents()`), nothing left to do here
+
+**Deviations:**
+- 4 of Plaid's primary categories (`LOAN_PAYMENTS`, `BANK_FEES`, `GENERAL_SERVICES`, `GOVERNMENT_AND_NON_PROFIT`) are deliberately left out of the map — there's no reasonable local category for them yet, and forcing a mismatch would be worse than falling back to Uncategorized. Add local categories for these if they show up often in real sync data.
+- `resolveCategoryId()` in `app/api/plaid/sync/route.ts` now does an **exact** name match against the mapped category (`isActive: true`), replacing the old `contains`/fuzzy match placeholder from Phase 4 entirely — deterministic instead of guessable.
+- `tsc --noEmit` clean, full suite still green (424/424, no test changes needed — no Plaid route tests exist yet, still Phase 8 scope).
 
 ## Phase 7 — Frontend
 - [ ] `npm install react-plaid-link`
@@ -199,4 +205,6 @@ _(append here as work progresses)_
 
 **2026-07-19 — Phase 4 complete:** Built all 5 API routes (`link-token`, `exchange-token`, `sync`, `items` GET, `items/[id]` DELETE). `needsReview: true` confirmed wired on transaction creation in the sync route. See the Phase 4 section above for the full deviation list — notably: amount sign conversion was done now instead of deferred to Phase 6, `Account.balance` is intentionally NOT touched yet (Phase 5), category resolution is still a naive placeholder pending Phase 6's `PLAID_CATEGORY_MAP`, and no tests were added yet (deferred to Phase 8 since the sync route body will change again in Phases 5–6). 424 tests still green, `tsc --noEmit` and `prisma validate` clean. Committed as `3198d22`.
 
-**2026-07-19 — Phase 5 complete:** Wired the `plaidManaged: false` guard into `lib/recurringEngine.ts`'s due-rule query, added the `autoPost` + `plaidManaged` 422 validation to `POST /api/recurring`, and added balance sync (`accountsBalanceGet`) to the end of `POST /api/plaid/sync`. All three closed gaps that were explicitly called out or placeholder-commented in earlier phases. **Known gap carried forward: `PATCH /api/recurring/[id]` doesn't enforce the same guard yet** — see the Phase 5 section above for why it was scoped out (existing PATCH tests aren't set up for the required rule/account lookup) and a reminder to close it before Phase 10. 424 tests still green with zero test changes needed — the POST test file already had the `account.findUnique` mock staged from a prior session. Not yet committed — awaiting user review. **Next session: Phase 6 — Category Mapping & Amount Convention** (`lib/plaidCategories.ts` with a real `PLAID_CATEGORY_MAP`, replacing the naive fuzzy-match placeholder in the sync route's `resolveCategoryId()`; amount conversion itself is already done, from Phase 4).
+**2026-07-19 — Phase 5 complete:** Wired the `plaidManaged: false` guard into `lib/recurringEngine.ts`'s due-rule query, added the `autoPost` + `plaidManaged` 422 validation to `POST /api/recurring`, and added balance sync (`accountsBalanceGet`) to the end of `POST /api/plaid/sync`. All three closed gaps that were explicitly called out or placeholder-commented in earlier phases. **Known gap carried forward: `PATCH /api/recurring/[id]` doesn't enforce the same guard yet** — see the Phase 5 section above for why it was scoped out (existing PATCH tests aren't set up for the required rule/account lookup) and a reminder to close it before Phase 10. 424 tests still green with zero test changes needed — the POST test file already had the `account.findUnique` mock staged from a prior session. Committed as `913f7b5`.
+
+**2026-07-19 — Phase 6 complete:** Built `lib/plaidCategories.ts` with a real `PLAID_CATEGORY_MAP` covering 12 of Plaid's 16 primary categories, mapped against the actual category names in `prisma/seed.ts` (corrected from PLAID.md's illustrative names, which don't match). `resolveCategoryId()` in the sync route now does an exact match against the mapped name instead of the old fuzzy `contains` placeholder. 4 Plaid categories have no local equivalent yet and intentionally fall back to Uncategorized — noted in the Phase 6 section above. 424 tests still green, `tsc --noEmit` clean, no test changes needed. Not yet committed — awaiting user review. **Next session: Phase 7 — Frontend** (`npm install react-plaid-link`, `ConnectAccountButton` component, `/settings/connections` and `/settings/connections/[id]` pages) — this is what finally wires the Phase 4 routes into the UI.

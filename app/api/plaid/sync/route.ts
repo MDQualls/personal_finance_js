@@ -9,6 +9,7 @@ import { apiSuccess, apiError } from '@/lib/api'
 import { decryptToken } from '@/lib/crypto'
 import { toCents } from '@/lib/money'
 import { normalizeDescription, sanitizeString } from '@/lib/normalize'
+import { PLAID_CATEGORY_MAP } from '@/lib/plaidCategories'
 
 const SyncSchema = z.object({
   plaidItemId: z.string().cuid(),
@@ -21,13 +22,12 @@ function toLocalAmountCents(plaidAmount: number): number {
   return plaidAmount > 0 ? -cents : cents
 }
 
-// Naive contains-match placeholder — Phase 6 replaces this with lib/plaidCategories.ts's PLAID_CATEGORY_MAP.
 async function resolveCategoryId(primary: string | undefined): Promise<string> {
-  const searchTerm = (primary ?? 'GENERAL_MERCHANDISE').replace(/_/g, ' ')
-  const match = await prisma.category.findFirst({
-    where: { isActive: true, name: { contains: searchTerm, mode: 'insensitive' } },
-  })
-  if (match) return match.id
+  const mappedName = primary ? PLAID_CATEGORY_MAP[primary] : undefined
+  if (mappedName) {
+    const match = await prisma.category.findFirst({ where: { name: mappedName, isActive: true } })
+    if (match) return match.id
+  }
 
   const fallback = await prisma.category.findFirst({ where: { name: 'Uncategorized', isSystem: true } })
   if (!fallback) throw new Error('Uncategorized system category not found')
