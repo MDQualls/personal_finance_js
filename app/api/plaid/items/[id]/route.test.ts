@@ -56,8 +56,22 @@ describe('DELETE /api/plaid/items/[id]', () => {
     expect(plaidClient.itemRemove).toHaveBeenCalledWith({ access_token: 'access-sandbox-abc' })
     expect(prismaMock.plaidItem.update).toHaveBeenCalledWith({
       where: { id: ITEM_ID },
-      data: { status: 'DISCONNECTED' },
+      data: { status: 'DISCONNECTED', accessToken: null },
     })
+  })
+
+  it('is a no-op when the item was already disconnected (accessToken already null)', async () => {
+    mockSession()
+    prismaMock.plaidItem.findUnique.mockResolvedValue(mockPlaidItem({ id: ITEM_ID, accessToken: null }) as never)
+
+    const req = new Request(`http://localhost/api/plaid/items/${ITEM_ID}`, { method: 'DELETE' })
+    const res = await DELETE(req as never, params)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.disconnected).toBe(true)
+    expect(plaidClient.itemRemove).not.toHaveBeenCalled()
+    expect(prismaMock.plaidItem.update).not.toHaveBeenCalled()
   })
 
   it('returns 500 when Plaid rejects the removal', async () => {

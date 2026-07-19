@@ -40,13 +40,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   try {
     const item = await prisma.plaidItem.findUnique({ where: { id: params.id } })
     if (!item) return apiError('Not found', 404)
+    if (!item.accessToken) return apiSuccess({ disconnected: true }) // already disconnected, nothing to revoke
 
     const accessToken = decryptToken(item.accessToken)
     await plaidClient.itemRemove({ access_token: accessToken })
 
+    // Revoked at Plaid — the encrypted token has no further purpose, so drop it rather than retain it.
     await prisma.plaidItem.update({
       where: { id: params.id },
-      data: { status: 'DISCONNECTED' },
+      data: { status: 'DISCONNECTED', accessToken: null },
     })
 
     return apiSuccess({ disconnected: true })

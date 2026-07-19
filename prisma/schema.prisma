@@ -124,7 +124,7 @@ model Transfer {
 
 model PlaidItem {
   id              String          @id @default(cuid())
-  accessToken     String          @unique // encrypted at rest (lib/crypto.ts)
+  accessToken     String?         @unique // encrypted at rest (lib/crypto.ts); nulled out on disconnect — no longer valid at Plaid, no reason to retain it
   itemId          String          @unique // Plaid's identifier for the institution connection
   institutionId   String
   institutionName String

@@ -74,6 +74,18 @@ describe('POST /api/plaid/sync', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 410 when the item has already been disconnected', async () => {
+    mockSession()
+    prismaMock.plaidItem.findUnique.mockResolvedValue(
+      { ...mockPlaidItem({ id: ITEM_ID, accessToken: null }), accounts: [] } as never
+    )
+
+    const res = await POST(makeRequest(ITEM_ID) as never)
+
+    expect(res.status).toBe(410)
+    expect(plaidClient.transactionsSync).not.toHaveBeenCalled()
+  })
+
   it('upserts an added expense transaction with the correct sign, needsReview, and mapped category', async () => {
     mockSession()
     const mappedAccount = mockPlaidAccount({ plaidAccountId: 'plaid_acct_1', accountId: 'cuid_account_1' })

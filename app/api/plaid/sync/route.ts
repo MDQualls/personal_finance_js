@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       include: { accounts: true },
     })
     if (!item) return apiError('Plaid item not found', 404)
+    if (!item.accessToken) return apiError('This connection has been disconnected', 410)
 
     const accessToken = decryptToken(item.accessToken)
     const merchantRules = await prisma.merchantRule.findMany()

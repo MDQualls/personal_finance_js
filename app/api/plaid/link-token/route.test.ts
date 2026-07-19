@@ -67,6 +67,18 @@ describe('POST /api/plaid/link-token', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 410 when the item to reconnect has already been disconnected', async () => {
+    mockSession()
+    prismaMock.plaidItem.findUnique.mockResolvedValue(
+      mockPlaidItem({ id: 'cuid_plaid_item_1', accessToken: null }) as never
+    )
+
+    const res = await POST(makeRequest({ plaidItemId: 'cuid_plaid_item_1' }) as never)
+
+    expect(res.status).toBe(410)
+    expect(plaidClient.linkTokenCreate).not.toHaveBeenCalled()
+  })
+
   it('enters Link update mode with the decrypted access_token when plaidItemId is given', async () => {
     mockSession()
     prismaMock.plaidItem.findUnique.mockResolvedValue(

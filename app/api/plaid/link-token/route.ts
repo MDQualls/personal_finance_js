@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     if (result.data.plaidItemId) {
       const item = await prisma.plaidItem.findUnique({ where: { id: result.data.plaidItemId } })
       if (!item) return apiError('Plaid item not found', 404)
+      if (!item.accessToken) return apiError('This connection has been disconnected', 410)
 
       // Update mode: pass the existing item's access_token instead of `products` — Link resolves
       // whatever the item's current issue is (login required, MFA, etc.) without creating a new item.
