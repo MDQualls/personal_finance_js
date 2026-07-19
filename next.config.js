@@ -10,10 +10,11 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.plaid.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
-      "connect-src 'self' https://api.anthropic.com",
+      "connect-src 'self' https://api.anthropic.com https://production.plaid.com https://development.plaid.com https://sandbox.plaid.com",
+      "frame-src https://cdn.plaid.com",
       "frame-ancestors 'none'",
     ].join('; '),
   },

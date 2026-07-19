@@ -12,7 +12,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 | 4 | API Routes (link-token, exchange-token, sync, items) | Complete | Phase 3 |
 | 5 | Reconciliation Guard (recurring engine + autoPost validation) | Complete | Phase 4 |
 | 6 | Category Mapping & Amount Convention | Complete | Phase 4, Phase 2 |
-| 7 | Frontend (Connect button, connections settings pages) | Not Started | Phase 4 |
+| 7 | Frontend (Connect button, connections settings pages) | Complete | Phase 4 |
 | 8 | Automated Tests | Not Started | Phases 2–7 |
 | 9 | Sandbox End-to-End Verification | Not Started | Phase 8 + user Phase A/B (`PLAID_SETUP_CHECKLIST.md`) |
 | 10 | Production Cutover (DB clear + real bank connections) | Not Started | Phase 9 + user Phase C (`PLAID_SETUP_CHECKLIST.md`) |
@@ -152,11 +152,27 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 - `resolveCategoryId()` in `app/api/plaid/sync/route.ts` now does an **exact** name match against the mapped category (`isActive: true`), replacing the old `contains`/fuzzy match placeholder from Phase 4 entirely — deterministic instead of guessable.
 - `tsc --noEmit` clean, full suite still green (424/424, no test changes needed — no Plaid route tests exist yet, still Phase 8 scope).
 
-## Phase 7 — Frontend
-- [ ] `npm install react-plaid-link`
-- [ ] `components/plaid/ConnectAccountButton.tsx`
-- [ ] `/settings/connections` page — list institutions, sync status, disconnect
-- [ ] `/settings/connections/[id]` page — map Plaid accounts to local accounts
+## Phase 7 — Frontend ✓
+**Status:** Complete — 2026-07-19
+- [x] `npm install react-plaid-link` (v4.1.1) — `npm audit` confirms zero new vulnerabilities, same 16 pre-existing findings as before, none traced to this package
+- [x] `components/plaid/ConnectAccountButton.tsx` — wraps `usePlaidLink`; auto-opens the widget once the token is fetched and the script is ready (a `useEffect`, not PLAID.md's two-click example) for a one-click flow instead of "fetch token" then "open" as two separate clicks
+- [x] `/settings/connections` page + `ConnectionsClient.tsx` — lists institutions with status badge, last-synced time, per-account linked/not-linked state and balance, Sync Now, Manage/Map Accounts, Disconnect
+- [x] `/settings/connections/[id]` page + `ConnectionMappingClient.tsx` — per-Plaid-account mapping UI: pick an existing unlinked local `Account` or create a new one inline
+- [x] New supporting route not in the original PLAID.md spec: `PATCH /api/plaid/accounts/[id]` — links a `PlaidAccount` to a local `Account` (existing or newly created), sets `plaidManaged: true` in both cases. Needed because PLAID.md's Phase 7 checklist calls for a mapping page but never specifies the route that performs the actual mapping.
+- [x] `next.config.js` CSP updated: `script-src`/`frame-src` allow `cdn.plaid.com` (Plaid Link's widget), `connect-src` allows Plaid's sandbox/development/production API hosts. Required for Link to function at all — not optional.
+- [x] Sidebar: added "Connections" item (Landmark icon) to the Settings section in `components/layout/Sidebar.tsx`
+
+**Browser-verified end-to-end** (Chrome extension connected mid-session, full click-through completed — not just `tsc`/tests this time):
+- Empty state renders correctly, no console errors
+- "Connect Bank Account" fails gracefully with "Failed to start connection" (expected — no real `PLAID_CLIENT_ID`/`SECRET` set yet); confirmed server-side the failure is Plaid correctly rejecting empty credentials, not a bug
+- Inserted a throwaway `PlaidItem`/`PlaidAccount` directly via SQL to exercise the list and mapping UI with real data (cleaned up afterward, not left in the DB)
+- Connections list correctly showed the institution, "Not linked" badge, and account row
+- Mapping page: dropdown correctly listed real existing unlinked accounts (queried via `plaidAccount: null`) plus "+ Create new account"; creating a new account end-to-end produced a real `Account` row with `plaidManaged: true`, `balance: 0`, correct `type` — row then correctly flipped to the "✓ Linked to [name]" read-only state
+- Connections list then reflected the linked balance and switched the button from "Map Accounts (1)" to "Manage"
+- Sync Now and Disconnect both fail gracefully (expected, fake/no real Plaid credentials) with inline error text, no crash
+- `/settings/connections/[nonexistent-id]` renders the standard Next.js 404 inside the dashboard shell (`notFound()`)
+- **Caught mid-session:** clicking Disconnect triggers a native `confirm()` dialog, which froze browser automation (a known limitation of the testing tool, not a bug — `confirm()` for destructive actions is this codebase's established pattern, used identically in accounts, budgets, subscriptions, recurring, tags, rules, and transactions). User manually dismissed it to unblock.
+- `tsc --noEmit` clean, `prisma validate` clean, full suite still green (424/424, no test changes needed — still Phase 8 scope, and no Plaid UI components have tests yet either)
 
 ## Phase 8 — Automated Tests
 - [ ] `lib/crypto.test.ts`
@@ -207,4 +223,6 @@ _(append here as work progresses)_
 
 **2026-07-19 — Phase 5 complete:** Wired the `plaidManaged: false` guard into `lib/recurringEngine.ts`'s due-rule query, added the `autoPost` + `plaidManaged` 422 validation to `POST /api/recurring`, and added balance sync (`accountsBalanceGet`) to the end of `POST /api/plaid/sync`. All three closed gaps that were explicitly called out or placeholder-commented in earlier phases. **Known gap carried forward: `PATCH /api/recurring/[id]` doesn't enforce the same guard yet** — see the Phase 5 section above for why it was scoped out (existing PATCH tests aren't set up for the required rule/account lookup) and a reminder to close it before Phase 10. 424 tests still green with zero test changes needed — the POST test file already had the `account.findUnique` mock staged from a prior session. Committed as `913f7b5`.
 
-**2026-07-19 — Phase 6 complete:** Built `lib/plaidCategories.ts` with a real `PLAID_CATEGORY_MAP` covering 12 of Plaid's 16 primary categories, mapped against the actual category names in `prisma/seed.ts` (corrected from PLAID.md's illustrative names, which don't match). `resolveCategoryId()` in the sync route now does an exact match against the mapped name instead of the old fuzzy `contains` placeholder. 4 Plaid categories have no local equivalent yet and intentionally fall back to Uncategorized — noted in the Phase 6 section above. 424 tests still green, `tsc --noEmit` clean, no test changes needed. Not yet committed — awaiting user review. **Next session: Phase 7 — Frontend** (`npm install react-plaid-link`, `ConnectAccountButton` component, `/settings/connections` and `/settings/connections/[id]` pages) — this is what finally wires the Phase 4 routes into the UI.
+**2026-07-19 — Phase 6 complete:** Built `lib/plaidCategories.ts` with a real `PLAID_CATEGORY_MAP` covering 12 of Plaid's 16 primary categories, mapped against the actual category names in `prisma/seed.ts` (corrected from PLAID.md's illustrative names, which don't match). `resolveCategoryId()` in the sync route now does an exact match against the mapped name instead of the old fuzzy `contains` placeholder. 4 Plaid categories have no local equivalent yet and intentionally fall back to Uncategorized — noted in the Phase 6 section above. 424 tests still green, `tsc --noEmit` clean, no test changes needed. Committed as `b763033`.
+
+**2026-07-19 — Phase 7 complete:** Built the full frontend: `ConnectAccountButton`, `/settings/connections` (list/sync/disconnect), `/settings/connections/[id]` (map Plaid accounts to local accounts), sidebar nav entry, and CSP updates for Plaid Link. Added a route not in the original spec — `PATCH /api/plaid/accounts/[id]` — since PLAID.md's Phase 7 checklist never specified what actually performs the account mapping. **This phase got a real browser click-through** (Chrome extension connected mid-session), not just `tsc`/tests — see the Phase 7 section above for the full verification list, including a live end-to-end test of account creation via the mapping UI (real `Account` row created with `plaidManaged: true`). One incident: the Disconnect button's `confirm()` dialog froze browser automation — expected tool behavior, not a code bug, and the user dismissed it manually. Test DB rows were cleaned up after verification. 424 tests still green, `tsc --noEmit` and `prisma validate` clean. Not yet committed — awaiting user review. **Next session: Phase 8 — Automated Tests** (test coverage for all 6 Plaid API routes, the new frontend components, and updated `recurringEngine.test.ts` asserting the `plaidManaged` filter).

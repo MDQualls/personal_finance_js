@@ -14,6 +14,7 @@ import {
   BarChart2,
   TrendingUp,
   Settings,
+  Landmark,
   LogOut,
 } from 'lucide-react'
 
@@ -33,6 +34,7 @@ const SETTINGS_ITEMS = [
   { href: '/settings/categories', label: 'Categories', icon: Settings },
   { href: '/settings/tags', label: 'Tags', icon: Settings },
   { href: '/settings/rules', label: 'Rules', icon: Settings },
+  { href: '/settings/connections', label: 'Connections', icon: Landmark },
 ]
 
 interface SidebarProps {
