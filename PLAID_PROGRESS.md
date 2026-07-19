@@ -15,7 +15,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 | 7 | Frontend (Connect button, connections settings pages) | Complete | Phase 4 |
 | 8 | Automated Tests | Complete | Phases 2–7 |
 | 9 | Sandbox End-to-End Verification | Complete | Phase 8 + user Phase A/B (`PLAID_SETUP_CHECKLIST.md`) |
-| 10 | Production Cutover (DB clear + real bank connections) | Not Started | Phase 9 + user Phase C (`PLAID_SETUP_CHECKLIST.md`) |
+| 10 | Production Cutover (DB clear + real bank connections) | In Progress | Phase 9 + user Phase C (`PLAID_SETUP_CHECKLIST.md`) |
 | 11 | Documentation & Closeout | Not Started | Phase 10 |
 
 ---
@@ -218,14 +218,23 @@ Forcing `ITEM_LOGIN_REQUIRED` and clicking Sync Now produced only a generic "Syn
 
 All disposable Sandbox test data from this phase (the throwaway `PlaidItem` and `Sandbox Test Checking` account) was cleaned up afterward — item disconnected via `DELETE /api/plaid/items/[id]`, account archived via `isActive: false` (never hard-deleted, per the standing data-integrity rule).
 
-## Phase 10 — Production Cutover
-- [ ] User completes `PLAID_SETUP_CHECKLIST.md` Phase C (Development access, real env vars)
-- [ ] **Confirm with user before executing** — clear `Transaction`, `Transfer`, `NetWorthRecord` data
-- [ ] Connect both real institutions via Plaid Link
-- [ ] Map Plaid accounts to local `Account` records, confirm `plaidManaged: true`
-- [ ] Initial sync run, spot-check results, work through the review queue
-- [ ] Refine `lib/plaidCategories.ts` against real transaction categories
-- [ ] Run transfer detection / link transfers via suggestions panel
+## Phase 10 — Production Cutover (in progress)
+**Status:** In Progress — started 2026-07-19
+- [x] User completed `PLAID_SETUP_CHECKLIST.md` Phase C — **used Production environment, not Development** as the checklist originally specified. Confirmed intentional with the user (Plaid Production approval already obtained); Production is billed per institution/API call, worth keeping in mind going forward.
+- [x] **Confirmed with user before executing** — cleared all pre-Plaid data: 108 `Transaction` rows (107 active + 1 already soft-deleted), 0 `Transfer`, 0 `NetWorthRecord`. Also removed all leftover Sandbox test data in the same pass: the disconnected "First Platypus Bank" `PlaidItem`, its 12 `PlaidAccount` rows, and the archived "Sandbox Test Checking" `Account` (hard-deleted — it was fake test data, not real financial history, so the normal soft-delete/archive convention for accounts doesn't apply). Budgets (1), Subscriptions (12), and RecurringRules (3) were deliberately left untouched, as agreed.
+- [x] Connected real institution via Plaid Link — **one connection, not two as originally planned**: both spouses bank at Oklahoma's Credit Union, so a single Plaid Link connection (Production) exposes all 7 accounts across both people.
+- [x] Mapped 5 of 7 returned Plaid accounts to local `Account` records, `plaidManaged: true` confirmed on each: `Holly CC 4147`, `OKCU Savings 8650`, `Holly Checking 8660`, `Holly Savings 8680`, `OKCU 8690`. The remaining 2 (`Savings •8110`, `Free Checking •8120`) are intentionally left unmapped — user confirmed these will never be tracked in this app. The sync route already skips any Plaid account with no local mapping, so this is a stable end state, not a TODO.
+- [x] Initial sync run by the user — succeeded, balances updated, transactions landed in the review queue as expected. **User is now working through the review queue** (approve/edit/recategorize) — in progress as of session end, not yet complete.
+- [ ] Refine `lib/plaidCategories.ts` against real transaction categories — hold until the review queue pass is finished and real miscategorization patterns are visible
+- [ ] Run transfer detection / link transfers via suggestions panel — hold until the review queue pass is finished
+
+**Gap surfaced during this phase, not yet closed:** `PATCH /api/recurring/[id]` still doesn't enforce the `plaidManaged` guard that `POST /api/recurring` has had since Phase 5 (see Phase 5 section above — this was explicitly flagged to close "before Phase 10 connects real accounts," and real accounts are now connected). Checked all 3 live `RecurringRule` rows (`Subaru Payment`, `Yanmar - DLL Finance`, `M1`, all on the now-Plaid-managed `OKCU 8690` account) — all have `autoPost: false`, so there is no active double-posting happening right now. But nothing currently stops a PATCH from flipping one to `autoPost: true` on that account, which would start silently duplicating transactions against the live Plaid sync. **Must close next session, before moving on to P5 reporting work.**
+
+**Also done this session, adjacent to Phase 10 but not part of the phase checklist — general security hardening** (user asked directly, tied to a stated personal-use security agreement: HTTPS for public traffic, encrypt at rest + delete when done, patched deps, no hardcoded secrets):
+- `docker-compose.yml`: both `app` and `db` now bind to `127.0.0.1` only (app was previously `0.0.0.0:3000`, reachable by anything on the LAN over plain HTTP — now matches the "never actually public" reasoning that made HTTPS unnecessary).
+- `PlaidItem.accessToken` is now nullable (migration `20260719205105_plaid_item_access_token_nullable`) and gets cleared on disconnect once the token is revoked at Plaid, instead of leaving dead ciphertext in the DB indefinitely. `sync` and `link-token` (update mode) both return `410` if called against an item whose token has already been cleared.
+- `npm audit fix` (no `--force`) cleared 9 of 16 known vulnerabilities with zero breaking changes; rebuilt the Docker image so the running container actually picked up the patched lockfile (the dev container's `node_modules` is a separate anonymous volume from the host's, so a host-side `npm install`/`audit fix` alone doesn't reach the container without a rebuild — worth remembering for any future dependency work). Remaining 7 vulnerabilities all require `--force`, including a `next-auth` downgrade to a pre-1.0 beta that would be a regression, not a fix — left alone deliberately, flagged as a future explicit-upgrade decision, not fixed blindly.
+- Committed as `f000d0d`, 476/476 tests green, `tsc --noEmit` clean.
 
 ## Phase 11 — Documentation & Closeout
 - [ ] Update `BACKLOG.md` — mark P4-1 complete, move to Done
@@ -263,3 +272,12 @@ _(append here as work progresses)_
 **Next session:** check whether the user has completed Phase A of `PLAID_SETUP_CHECKLIST.md`. If yes, proceed to Phase 9 (Sandbox Link → exchange → sync flow with Plaid's `user_good`/`pass_good` test credentials, plus an error-state login test). If not yet, Phase 8 was the last "no dependencies" phase — there's nothing further to build without it.
 
 **2026-07-19 — Session end:** User is doing `PLAID_SETUP_CHECKLIST.md` Phase A manual setup (Plaid dev account, Sandbox keys, `ENCRYPTION_KEY`) outside this session, right after Phase 8 wrapped. All 8 code phases committed locally (`fa1ef5b` through `99cc799`) — **5 commits ahead of `origin/main`, not pushed.** Full suite green (464/464), `tsc --noEmit` and `prisma validate` clean as of the last commit. **Next session starts at Phase 9 — Sandbox End-to-End Verification.** Confirm the user's `.env.local` has `PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_ENV=sandbox`/`ENCRYPTION_KEY` set before starting (restart the app container after adding them so the running dev server picks up the new env vars), then run the full Link → exchange-token → sync flow using Plaid's `user_good`/`pass_good` Sandbox credentials, plus at least one Sandbox error-state login (expired token or MFA-required) to exercise the re-auth path.
+
+**2026-07-19 — Session end (Phase 10 in progress):** Real cutover underway. Plaid Production connection to Oklahoma's Credit Union live (5 of 7 accounts mapped, 2 permanently excluded per user decision). All pre-Plaid transaction/transfer/net-worth history and all Sandbox test data wiped per the 7/13 standing decision. First real sync ran successfully; user is mid-way through manually reviewing/approving the synced transactions — not yet declared "100% accurate" by the user, so Phase 10's last two checklist items (category refinement, transfer detection pass) are intentionally on hold until that review is done. Also closed three general security-hardening items the same session (port binding, dead-token cleanup, dependency patches — see the dedicated note in the Phase 10 section above), committed as `f000d0d`, unrelated to the Plaid phase checklist itself.
+
+**Next session must fully close out, in order, before touching P5 reporting:**
+1. Close the `PATCH /api/recurring/[id]` `plaidManaged` guard gap (flagged since Phase 5, real accounts are connected now — see Phase 10 section above for exact current risk state, which is low but not zero).
+2. Confirm with the user that their review-queue pass is done, then run the transfer detection / category-refinement checklist items.
+3. Phase 11 — Documentation & Closeout (`BACKLOG.md`, `CLAUDE.md` if warranted, final memory update).
+
+User was explicit: all of the above must be fully handled next session before moving on to P5 reporting enhancements.
