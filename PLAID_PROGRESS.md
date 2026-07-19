@@ -8,7 +8,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 |---|---|---|---|
 | 1 | Schema & Migration (Plaid) | Complete | — |
 | 2 | Import Review Queue (CSV + Plaid) | Complete | Phase 1 |
-| 3 | Core Infrastructure (Plaid client, encryption) | Not Started | Phase 1 |
+| 3 | Core Infrastructure (Plaid client, encryption) | Complete | Phase 1 |
 | 4 | API Routes (link-token, exchange-token, sync, items) | Not Started | Phase 3 |
 | 5 | Reconciliation Guard (recurring engine + autoPost validation) | Not Started | Phase 4 |
 | 6 | Category Mapping & Amount Convention | Not Started | Phase 4, Phase 2 |
@@ -105,11 +105,17 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 
 ---
 
-## Phase 3 — Core Infrastructure
-- [ ] `npm install plaid`
-- [ ] `lib/plaid.ts` — Plaid client singleton
-- [ ] `lib/crypto.ts` — AES-256-GCM `encryptToken` / `decryptToken`
-- [ ] Env vars wired: `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV`, `ENCRYPTION_KEY`
+## Phase 3 — Core Infrastructure ✓
+**Status:** Complete — 2026-07-19
+- [x] `npm install plaid` (v43.0.0) — confirmed zero new vulnerabilities via `npm audit` (all 16 pre-existing findings trace to unrelated deps: next, eslint-config-next, next-auth, babel, etc. — none to `plaid`)
+- [x] `lib/plaid.ts` — Plaid client singleton, server-only, reads `PLAID_ENV`/`PLAID_CLIENT_ID`/`PLAID_SECRET` from `process.env`
+- [x] `lib/crypto.ts` — AES-256-GCM `encryptToken` / `decryptToken`
+- [x] `lib/crypto.test.ts` — round-trip, empty string, non-deterministic ciphertext (unique IV per call), tamper detection (auth tag), missing-key error path. Added now rather than deferred to Phase 8 since this is security-critical code (encrypts the Plaid access token at rest)
+- [ ] Env vars **not yet** written to `.env.local` — `PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_ENV`/`ENCRYPTION_KEY` remain the user's task per `PLAID_SETUP_CHECKLIST.md` Phase A. Code reads them via `process.env` and fails gracefully (clear error, not a crash) if absent.
+
+**Deviation from the PLAID.md spec:** `lib/crypto.ts` reads `ENCRYPTION_KEY` lazily inside a `getKey()` helper on each call, not as a module-top-level `const`. The spec's version computes the key at import time (`Buffer.from(process.env.ENCRYPTION_KEY!, 'base64')` at module scope) — that throws immediately on import if the env var is unset, which would crash Jest's coverage collector (it imports every `lib/**/*.ts` file) well before the user has done any Plaid account setup. Lazy lookup defers the failure to actual encrypt/decrypt calls, which don't happen until Phase 9/10.
+
+**Verified:** `tsc --noEmit` clean, full suite green (424/424 — 7 new crypto tests). All routes still compile with zero server errors after adding the new lib files (curl + docker logs check).
 
 ## Phase 4 — API Routes
 - [ ] `POST /api/plaid/link-token`
