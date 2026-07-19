@@ -354,4 +354,39 @@ describe('POST /api/plaid/sync', () => {
 
     expect(res.status).toBe(500)
   })
+
+  it('marks the item ERROR and returns 409 when Plaid reports ITEM_LOGIN_REQUIRED', async () => {
+    mockSession()
+    prismaMock.plaidItem.findUnique.mockResolvedValue({ ...mockPlaidItem({ id: ITEM_ID }), accounts: [] } as never)
+    const plaidError = {
+      response: { data: { error_code: 'ITEM_LOGIN_REQUIRED', error_type: 'ITEM_ERROR' } },
+    }
+    ;(plaidClient.transactionsSync as jest.Mock).mockRejectedValue(plaidError)
+
+    const res = await POST(makeRequest(ITEM_ID) as never)
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.error).toBe('This connection needs to be reconnected')
+    expect(prismaMock.plaidItem.update).toHaveBeenCalledWith({
+      where: { id: ITEM_ID },
+      data: { status: 'ERROR' },
+    })
+  })
+
+  it('returns a generic 500 for a Plaid error code other than ITEM_LOGIN_REQUIRED', async () => {
+    mockSession()
+    prismaMock.plaidItem.findUnique.mockResolvedValue({ ...mockPlaidItem({ id: ITEM_ID }), accounts: [] } as never)
+    const plaidError = {
+      response: { data: { error_code: 'RATE_LIMIT_EXCEEDED', error_type: 'RATE_LIMIT_EXCEEDED' } },
+    }
+    ;(plaidClient.transactionsSync as jest.Mock).mockRejectedValue(plaidError)
+
+    const res = await POST(makeRequest(ITEM_ID) as never)
+
+    expect(res.status).toBe(500)
+    expect(prismaMock.plaidItem.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'ERROR' } })
+    )
+  })
 })

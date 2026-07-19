@@ -14,7 +14,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 | 6 | Category Mapping & Amount Convention | Complete | Phase 4, Phase 2 |
 | 7 | Frontend (Connect button, connections settings pages) | Complete | Phase 4 |
 | 8 | Automated Tests | Complete | Phases 2–7 |
-| 9 | Sandbox End-to-End Verification | Not Started | Phase 8 + user Phase A/B (`PLAID_SETUP_CHECKLIST.md`) |
+| 9 | Sandbox End-to-End Verification | Complete | Phase 8 + user Phase A/B (`PLAID_SETUP_CHECKLIST.md`) |
 | 10 | Production Cutover (DB clear + real bank connections) | Not Started | Phase 9 + user Phase C (`PLAID_SETUP_CHECKLIST.md`) |
 | 11 | Documentation & Closeout | Not Started | Phase 10 |
 
@@ -196,11 +196,27 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 **Coverage note:** the global coverage gate in `jest.config.js` (80% lines/statements/branches/functions) was already failing before this phase — confirmed via `git stash` comparison against the Phase 7 commit: 52.74%/45.74%/42.8%/52.91% baseline, now 61.2%/49.68%/47.48%/61.31% after Phase 8's additions. This is pre-existing, project-wide tech debt (most page-level components across the whole app, not just Plaid, have no tests) — not something this phase introduced, and fixing it is out of scope for a Plaid-focused phase. The pre-commit hook already runs `--no-coverage`, so this has never actually gated anything. Worth a BACKLOG.md entry if the user wants it enforced for real.
 - [x] `tsc --noEmit` clean, all 6 Plaid API routes individually verified at 98.6–100% coverage (well above the 90% CLAUDE.md bar for API route handlers)
 
-## Phase 9 — Sandbox End-to-End Verification
-- [ ] User completes `PLAID_SETUP_CHECKLIST.md` Phase A (dev account, sandbox keys, encryption key)
-- [ ] Full Link → exchange → sync flow tested with `user_good` / `pass_good`
-- [ ] Confirm synced transactions land in the review queue, not straight into reports
-- [ ] Sandbox error-state login tested (expired token / MFA)
+## Phase 9 — Sandbox End-to-End Verification ✓
+**Status:** Complete — 2026-07-19
+- [x] User completed `PLAID_SETUP_CHECKLIST.md` Phase A (dev account, sandbox keys, encryption key) — verified all four `.env.local` vars present, `PLAID_ENV=sandbox`
+- [x] Full Link → exchange → sync flow tested with `user_good` / `pass_good` against First Platypus Bank — exchange-token, account mapping, and sync (48 transactions) all succeeded; balance synced from $0.00 → $110.00
+- [x] Confirmed synced transactions land in the review queue (`needsReview: true`) — verified in `/transactions/review`, approve flow tested
+- [x] Confirmed amount sign conversion and category mapping are correct against real Sandbox data (Uber → Transportation, McDonald's/Starbucks → Food & Dining, United Airlines credit → Travel positive)
+- [x] Reconciliation guard re-verified against a real synced Plaid-managed account (not just mocks): `POST /api/recurring` with `autoPost: true` correctly returned 422
+- [x] Sandbox error-state login tested — forced a real `ITEM_LOGIN_REQUIRED` via Plaid's `sandbox/item/reset_login` API and confirmed via server logs
+
+**Gap found and fixed this phase — the re-auth path did not exist before today:**
+Forcing `ITEM_LOGIN_REQUIRED` and clicking Sync Now produced only a generic "Sync failed" 500 with no status change and no reconnect affordance — `PlaidItemStatus.ERROR` and the "Needs Attention" badge existed in schema/UI but nothing ever set them, and Link update mode wasn't implemented. Built and verified end-to-end in the same session:
+- `app/api/plaid/link-token/route.ts` — accepts optional `plaidItemId`; when present, decrypts the item's access token and calls `linkTokenCreate` in Link's update mode (no `products`) instead of creating a fresh item
+- `app/api/plaid/sync/route.ts` — added `getPlaidErrorCode()` (structural narrowing of the Axios error shape, not a dependency on axios's types since axios is only transitive here); on `ITEM_LOGIN_REQUIRED` specifically, sets `PlaidItem.status = 'ERROR'` and returns 409 (other error codes still fall through to the existing generic 500 — deliberately narrow, only handling the one code PLAID.md called out)
+- `app/api/plaid/items/[id]/route.ts` — new `PATCH`, Zod-restricted to `{ status: 'ACTIVE' }` only (the one transition a client should be able to request — every other status change already happens server-side)
+- `components/plaid/ConnectAccountButton.tsx` — now takes a discriminated `mode: 'connect' | 'reconnect'` prop; reconnect mode fetches the update-mode link token and, since Plaid doesn't require re-exchanging the token in update mode, just PATCHes the item back to ACTIVE on Link's `onSuccess`
+- `ConnectionsClient.tsx` — renders `Reconnect` instead of `Sync Now` when `status === 'ERROR'`, shows a specific "needs to be reconnected" message on a 409 from Sync Now
+- Verified the complete loop live in Sandbox on the broken test item: Sync Now → 409 → badge flips to "Needs Attention" → Reconnect → Plaid Link update-mode flow (skipped straight to password entry, already knew the username) → `pass_good` → PATCH → badge back to "Active" → Sync Now works again
+- 9 new tests added across the three route test files (473/473 total passing), `tsc --noEmit` clean
+- Browser automation note for future sessions: coordinate-based clicks were unreliable inside the Plaid Link iframe in this environment (clicks landed but didn't register); keyboard navigation (Tab to focus, Enter to activate) worked reliably instead — use that approach first for any future Link automation in Chrome extension sessions.
+
+All disposable Sandbox test data from this phase (the throwaway `PlaidItem` and `Sandbox Test Checking` account) was cleaned up afterward — item disconnected via `DELETE /api/plaid/items/[id]`, account archived via `isActive: false` (never hard-deleted, per the standing data-integrity rule).
 
 ## Phase 10 — Production Cutover
 - [ ] User completes `PLAID_SETUP_CHECKLIST.md` Phase C (Development access, real env vars)

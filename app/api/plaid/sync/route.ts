@@ -15,6 +15,18 @@ const SyncSchema = z.object({
   plaidItemId: z.string().cuid(),
 })
 
+// Plaid errors arrive as an Axios error with `response.data.error_code` — narrow structurally
+// rather than depending on axios's types, since axios is only a transitive dependency here.
+function getPlaidErrorCode(err: unknown): string | undefined {
+  if (typeof err !== 'object' || err === null || !('response' in err)) return undefined
+  const response = (err as { response?: unknown }).response
+  if (typeof response !== 'object' || response === null || !('data' in response)) return undefined
+  const data = (response as { data?: unknown }).data
+  if (typeof data !== 'object' || data === null || !('error_code' in data)) return undefined
+  const code = (data as { error_code?: unknown }).error_code
+  return typeof code === 'string' ? code : undefined
+}
+
 function toLocalAmountCents(plaidAmount: number): number {
   // Plaid: positive = money leaving the account (expense), negative = money entering (income) —
   // the inverse of our convention (negative = expense, positive = income).
@@ -140,6 +152,12 @@ export async function POST(req: NextRequest) {
     return apiSuccess({ added: added.length, modified: modified.length, removed: removed.length })
   } catch (err) {
     console.error('[plaid:sync]', err)
+
+    if (getPlaidErrorCode(err) === 'ITEM_LOGIN_REQUIRED') {
+      await prisma.plaidItem.update({ where: { id: plaidItemId }, data: { status: 'ERROR' } })
+      return apiError('This connection needs to be reconnected', 409)
+    }
+
     return apiError('Sync failed', 500)
   }
 }

@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import { usePlaidLink } from 'react-plaid-link'
 import { Button } from '@/components/ui/Button'
 
-interface ConnectAccountButtonProps {
-  onConnected: (plaidItemId: string) => void
-}
+type ConnectAccountButtonProps =
+  | { mode?: 'connect'; onConnected: (plaidItemId: string) => void }
+  | { mode: 'reconnect'; plaidItemId: string; onReconnected: () => void }
 
-export function ConnectAccountButton({ onConnected }: ConnectAccountButtonProps) {
+export function ConnectAccountButton(props: ConnectAccountButtonProps) {
   const [linkToken, setLinkToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -18,6 +18,27 @@ export function ConnectAccountButton({ onConnected }: ConnectAccountButtonProps)
     onSuccess: async (publicToken, metadata) => {
       setLoading(true)
       setError('')
+
+      if (props.mode === 'reconnect') {
+        // Update mode: the item's access_token is unchanged, so there's nothing to exchange —
+        // just clear the ERROR status that the sync route set when it hit ITEM_LOGIN_REQUIRED.
+        const res = await fetch(`/api/plaid/items/${props.plaidItemId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'ACTIVE' }),
+        })
+
+        setLoading(false)
+        setLinkToken(null)
+
+        if (!res.ok) {
+          setError('Failed to reconnect account')
+          return
+        }
+
+        props.onReconnected()
+        return
+      }
 
       const res = await fetch('/api/plaid/exchange-token', {
         method: 'POST',
@@ -45,7 +66,7 @@ export function ConnectAccountButton({ onConnected }: ConnectAccountButtonProps)
       }
 
       const body = await res.json()
-      onConnected(body.data.plaidItemId)
+      props.onConnected(body.data.plaidItemId)
     },
     onExit: () => {
       setLinkToken(null)
@@ -63,7 +84,11 @@ export function ConnectAccountButton({ onConnected }: ConnectAccountButtonProps)
     setLoading(true)
     setError('')
 
-    const res = await fetch('/api/plaid/link-token', { method: 'POST' })
+    const res = await fetch('/api/plaid/link-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(props.mode === 'reconnect' ? { plaidItemId: props.plaidItemId } : {}),
+    })
     if (!res.ok) {
       setLoading(false)
       setError('Failed to start connection')
@@ -76,9 +101,15 @@ export function ConnectAccountButton({ onConnected }: ConnectAccountButtonProps)
 
   return (
     <div>
-      <Button onClick={startLink} loading={loading}>
-        Connect Bank Account
-      </Button>
+      {props.mode === 'reconnect' ? (
+        <Button size="sm" onClick={startLink} loading={loading}>
+          Reconnect
+        </Button>
+      ) : (
+        <Button onClick={startLink} loading={loading}>
+          Connect Bank Account
+        </Button>
+      )}
       {error && <p className="text-[13px] text-[#ef4444] mt-2">{error}</p>}
     </div>
   )

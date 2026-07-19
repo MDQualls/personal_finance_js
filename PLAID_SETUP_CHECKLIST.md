@@ -10,11 +10,11 @@ Manual, human-side steps for the P4-1 Plaid integration — accounts, credential
 
 Needed once we reach the Sandbox test step in the build phase (PLAID.md step 9.8) — not before.
 
-- [ ] Sign up at https://dashboard.plaid.com/signup (free)
-- [ ] Create an application in the Plaid dashboard
-- [ ] Grab **Sandbox** keys (Client ID + Sandbox Secret)
-- [ ] Generate an encryption key: `openssl rand -base64 32`
-- [ ] Add to `.env.local`:
+- [x] Sign up at https://dashboard.plaid.com/signup (free)
+- [x] Create an application in the Plaid dashboard
+- [x] Grab **Sandbox** keys (Client ID + Sandbox Secret)
+- [x] Generate an encryption key: `openssl rand -base64 32`
+- [x] Add to `.env.local`:
   ```
   PLAID_CLIENT_ID=...
   PLAID_SECRET=...          # sandbox secret
@@ -24,8 +24,8 @@ Needed once we reach the Sandbox test step in the build phase (PLAID.md step 9.8
 
 ## Phase B — Sandbox testing
 
-- [ ] Run the full Link → exchange → sync flow using Plaid's fake credentials: `user_good` / `pass_good`
-- [ ] Test at least one Sandbox error-state login (expired token or MFA-required) to exercise the re-auth UI path before it matters for real
+- [x] Run the full Link → exchange → sync flow using Plaid's fake credentials: `user_good` / `pass_good` — done 2026-07-19, P4-1 Phase 9
+- [x] Test at least one Sandbox error-state login (expired token or MFA-required) to exercise the re-auth UI path before it matters for real — done 2026-07-19; this uncovered the re-auth path wasn't built at all, which got built and verified the same session (see `PLAID_PROGRESS.md` Phase 9)
 
 ## Phase C — Going live with real banks
 

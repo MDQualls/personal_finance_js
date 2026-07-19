@@ -59,6 +59,11 @@ export function ConnectionsClient({ items }: ConnectionsClientProps) {
     setSyncingId(null)
 
     if (!res.ok) {
+      if (res.status === 409) {
+        setError('This connection needs to be reconnected')
+        router.refresh() // picks up the ERROR status the sync route just set
+        return
+      }
       setError('Sync failed')
       return
     }
@@ -159,6 +164,13 @@ export function ConnectionsClient({ items }: ConnectionsClientProps) {
                       <RefreshCw size={14} strokeWidth={1.5} />
                       Sync Now
                     </Button>
+                  )}
+                  {item.status === 'ERROR' && (
+                    <ConnectAccountButton
+                      mode="reconnect"
+                      plaidItemId={item.id}
+                      onReconnected={() => router.refresh()}
+                    />
                   )}
                   <Link href={`/settings/connections/${item.id}`}>
                     <Button size="sm" variant="secondary">
