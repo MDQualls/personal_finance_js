@@ -9,6 +9,7 @@ export type Account = {
   balance: number // cents
   currency: string
   isActive: boolean
+  plaidManaged: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -35,6 +36,7 @@ export type Transaction = {
   notes: string | null
   isValidated: boolean
   isTransfer: boolean
+  plaidTransactionId: string | null
   deletedAt: Date | null
   createdAt: Date
   updatedAt: Date
@@ -61,6 +63,37 @@ export type TransferCandidate = {
   fromTransaction: Transaction
   toTransaction: Transaction
   reason: string
+}
+
+export type PlaidItemStatus = 'ACTIVE' | 'ERROR' | 'DISCONNECTED'
+
+export type PlaidItem = {
+  id: string
+  itemId: string
+  institutionId: string
+  institutionName: string
+  lastSyncedAt: Date | null
+  lastCursor: string | null
+  status: PlaidItemStatus
+  createdAt: Date
+  updatedAt: Date
+  accounts?: PlaidAccount[]
+  // note: accessToken is deliberately omitted — never returned to the client
+}
+
+export type PlaidAccount = {
+  id: string
+  plaidItemId: string
+  plaidAccountId: string
+  accountId: string | null
+  name: string
+  mask: string | null
+  officialName: string | null
+  type: string
+  subtype: string | null
+  createdAt: Date
+  updatedAt: Date
+  account?: Account
 }
 
 export type Budget = {
