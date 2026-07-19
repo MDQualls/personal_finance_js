@@ -36,6 +36,7 @@ export type Transaction = {
   notes: string | null
   isValidated: boolean
   isTransfer: boolean
+  needsReview: boolean
   plaidTransactionId: string | null
   deletedAt: Date | null
   createdAt: Date

@@ -14,6 +14,7 @@ export function mockTransaction(overrides: Partial<Transaction> = {}): Transacti
     notes: null,
     isValidated: false,
     isTransfer: false,
+    needsReview: false,
     plaidTransactionId: null,
     deletedAt: null,
     createdAt: new Date('2026-04-01T00:00:00Z'),

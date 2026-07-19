@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
             categoryId: budget.categoryId,
             deletedAt: null,
             isTransfer: false,
+            needsReview: false,
             date: { gte: start, lte: end },
             amount: { lt: 0 },
           },

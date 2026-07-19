@@ -134,4 +134,16 @@ describe('POST /api/insights/generate', () => {
     const res = await POST(makeRequest() as never)
     expect(res.status).toBe(500)
   })
+
+  it('excludes transactions awaiting review from the aggregated data sent to Claude', async () => {
+    mockSession()
+    prismaMock.aIInsight.findUnique.mockResolvedValue(null)
+    await setupGenerateMocks()
+
+    await POST(makeRequest() as never)
+
+    for (const call of prismaMock.transaction.findMany.mock.calls) {
+      expect((call[0] as any).where).toMatchObject({ needsReview: false })
+    }
+  })
 })

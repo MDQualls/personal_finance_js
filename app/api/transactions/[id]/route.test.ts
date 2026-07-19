@@ -70,6 +70,29 @@ describe('PATCH /api/transactions/[id]', () => {
     )
   })
 
+  it('approves a review-queue transaction by setting needsReview: false with a categoryId', async () => {
+    mockSession()
+    const tx = mockTransaction({ needsReview: true })
+    const updated = { ...tx, needsReview: false, categoryId: 'cuid_category_2' }
+    prismaMock.transaction.findUnique.mockResolvedValue(tx)
+    prismaMock.$transaction.mockResolvedValue([updated])
+
+    const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {
+      method: 'PATCH',
+      body: JSON.stringify({ needsReview: false, categoryId: 'cuid_category_2' }),
+    })
+    const res = await PATCH(req as never, { params: { id: tx.id } })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.needsReview).toBe(false)
+    expect(prismaMock.transaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ needsReview: false, categoryId: 'cuid_category_2' }),
+      })
+    )
+  })
+
   it('returns 400 on invalid field', async () => {
     mockSession()
     const req = new Request('http://localhost/api/transactions/cuid_transaction_1', {

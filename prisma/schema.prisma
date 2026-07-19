@@ -97,6 +97,7 @@ model Transaction {
   notes              String?
   isValidated        Boolean   @default(false)
   isTransfer         Boolean   @default(false)
+  needsReview        Boolean   @default(false) // true = imported (CSV/Plaid), category not yet confirmed
   plaidTransactionId String?   @unique // Plaid's transaction ID — used for dedup
   deletedAt          DateTime?
   createdAt          DateTime  @default(now())

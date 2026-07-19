@@ -8,6 +8,7 @@ export async function getSpendingByCategory(from: Date, to: Date): Promise<Spend
     where: {
       deletedAt: null,
       isTransfer: false,
+      needsReview: false,
       date: { gte: from, lte: to },
       amount: { lt: 0 },
     },
@@ -48,7 +49,7 @@ export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
   const end = endOfMonth(now)
 
   const transactions = await prisma.transaction.findMany({
-    where: { deletedAt: null, isTransfer: false, date: { gte: start, lte: end } },
+    where: { deletedAt: null, isTransfer: false, needsReview: false, date: { gte: start, lte: end } },
     include: { category: true },
   })
 

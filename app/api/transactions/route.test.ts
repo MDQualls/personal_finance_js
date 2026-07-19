@@ -111,6 +111,28 @@ describe('GET /api/transactions', () => {
     const body = await res.json()
     expect(body.error).toBe('Failed to fetch transactions')
   })
+
+  it('applies needsReview: true filter when needsReview=true query param is set', async () => {
+    mockSession()
+    prismaMock.$transaction.mockResolvedValue([[], 0])
+
+    const req = new Request('http://localhost/api/transactions?needsReview=true')
+    await GET(req as never)
+
+    const findArgs = prismaMock.transaction.findMany.mock.calls[0][0] as any
+    expect(findArgs.where.needsReview).toBe(true)
+  })
+
+  it('omits needsReview filter when the query param is absent', async () => {
+    mockSession()
+    prismaMock.$transaction.mockResolvedValue([[], 0])
+
+    const req = new Request('http://localhost/api/transactions')
+    await GET(req as never)
+
+    const findArgs = prismaMock.transaction.findMany.mock.calls[0][0] as any
+    expect(findArgs.where.needsReview).toBeUndefined()
+  })
 })
 
 describe('POST /api/transactions', () => {

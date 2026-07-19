@@ -51,13 +51,13 @@ export async function POST(req: NextRequest) {
 
     const [transactions, budgets, subscriptions, priorTransactions] = await Promise.all([
       prisma.transaction.findMany({
-        where: { deletedAt: null, isTransfer: false, date: { gte: start, lte: end } },
+        where: { deletedAt: null, isTransfer: false, needsReview: false, date: { gte: start, lte: end } },
         include: { category: true },
       }),
       prisma.budget.findMany({ include: { category: true } }),
       prisma.subscription.findMany({ where: { isActive: true } }),
       prisma.transaction.findMany({
-        where: { deletedAt: null, isTransfer: false, date: { gte: priorStart, lte: priorEnd } },
+        where: { deletedAt: null, isTransfer: false, needsReview: false, date: { gte: priorStart, lte: priorEnd } },
         include: { category: true },
       }),
     ])

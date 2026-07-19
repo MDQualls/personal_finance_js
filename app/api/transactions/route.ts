@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get('to') ?? undefined
   const showDeleted = searchParams.get('showDeleted') === 'true'
   const excludeTransfers = searchParams.get('excludeTransfers') === 'true'
+  const needsReview = searchParams.get('needsReview') === 'true'
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
   const skip = (page - 1) * limit
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
     const where = {
       deletedAt: showDeleted ? { not: null } : null,
       ...(excludeTransfers ? { isTransfer: false } : {}),
+      ...(needsReview ? { needsReview: true } : {}),
       ...(accountId ? { accountId } : {}),
       ...(categoryId ? { categoryId } : {}),
       ...(tagId ? { tags: { some: { id: tagId } } } : {}),

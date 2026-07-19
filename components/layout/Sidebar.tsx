@@ -35,7 +35,11 @@ const SETTINGS_ITEMS = [
   { href: '/settings/rules', label: 'Rules', icon: Settings },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  reviewCount?: number
+}
+
+export function Sidebar({ reviewCount = 0 }: SidebarProps) {
   const pathname = usePathname()
 
   function isActive(href: string) {
@@ -64,6 +68,11 @@ export function Sidebar() {
           >
             <Icon size={20} strokeWidth={1.5} />
             {label}
+            {href === '/transactions' && reviewCount > 0 && (
+              <span className="ml-auto flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#f59e0b] text-white text-[10px] font-semibold font-heading">
+                {reviewCount > 99 ? '99+' : reviewCount}
+              </span>
+            )}
           </Link>
         ))}
 

@@ -45,6 +45,20 @@ describe('GET /api/budgets', () => {
     const res = await GET(new Request('http://localhost/api/budgets') as never)
     expect(res.status).toBe(500)
   })
+
+  it('excludes transactions awaiting review from the spent aggregate', async () => {
+    mockSession()
+    const cat = mockCategory()
+    const budget = mockBudget({ categoryId: cat.id, amount: 50000 })
+    prismaMock.budget.findMany.mockResolvedValue([{ ...budget, category: cat }] as never)
+    prismaMock.transaction.aggregate.mockResolvedValue({ _sum: { amount: null } } as never)
+
+    await GET(new Request('http://localhost/api/budgets') as never)
+
+    expect(prismaMock.transaction.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ needsReview: false }) })
+    )
+  })
 })
 
 describe('POST /api/budgets', () => {

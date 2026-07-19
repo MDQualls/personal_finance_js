@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { startOfMonth, endOfMonth } from 'date-fns'
-import { Plus, Upload, Download, Search, ArrowLeftRight } from 'lucide-react'
+import { Plus, Upload, Download, Search, ArrowLeftRight, ClipboardList } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
@@ -14,20 +15,22 @@ import { ExportTransactionsModal } from '@/components/ui/ExportTransactionsModal
 import { TransferSuggestionsPanel } from '@/components/ui/TransferSuggestionsPanel'
 import type { Transaction, Account, Category, Tag } from '@/types'
 
-type FilterTab = 'active' | 'deleted'
+type FilterTab = 'active' | 'deleted' | 'review'
 
 interface Props {
   accounts: Account[]
   categories: (Category & { children: Category[] })[]
   tags: Tag[]
+  initialTab?: FilterTab
 }
 
-export function TransactionsClient({ accounts, categories, tags }: Props) {
+export function TransactionsClient({ accounts, categories, tags, initialTab = 'active' }: Props) {
+  const router = useRouter()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<FilterTab>('active')
+  const [tab, setTab] = useState<FilterTab>(initialTab)
   const [showAdd, setShowAdd] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
@@ -43,6 +46,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
     try {
       const params = new URLSearchParams({ page: String(page), limit: '50' })
       if (tab === 'deleted') params.set('showDeleted', 'true')
+      if (tab === 'review') params.set('needsReview', 'true')
       if (search) params.set('search', search)
       if (accountFilter) params.set('accountId', accountFilter)
       if (categoryFilter) params.set('categoryId', categoryFilter)
@@ -80,6 +84,17 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
   async function handleDelete(id: string) {
     await fetch(`/api/transactions/${id}`, { method: 'DELETE' })
     fetchTransactions()
+    router.refresh()
+  }
+
+  async function handleApprove(id: string, categoryId: string) {
+    await fetch(`/api/transactions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ needsReview: false, categoryId }),
+    })
+    fetchTransactions()
+    router.refresh()
   }
 
   async function handleValidate(id: string, isValidated: boolean) {
@@ -98,6 +113,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
       body: JSON.stringify({ restore: true }),
     })
     fetchTransactions()
+    router.refresh()
   }
 
   async function handleUnlink(transactionId: string) {
@@ -135,6 +151,16 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
               }`}
             >
               Deleted
+            </button>
+            <button
+              onClick={() => handleTabChange('review')}
+              className={`px-3 py-1.5 rounded-[6px] text-[13px] font-medium font-heading transition-colors ${
+                tab === 'review'
+                  ? 'bg-white text-[#1a2332] shadow-sm'
+                  : 'text-[#6b7a8d] hover:text-[#1a2332]'
+              }`}
+            >
+              Review
             </button>
           </div>
 
@@ -240,7 +266,7 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
       {/* Count */}
       {!loading && (
         <p className="text-[12px] text-[#6b7a8d]">
-          {total.toLocaleString()} {tab === 'deleted' ? 'deleted ' : ''}transaction{total !== 1 ? 's' : ''}
+          {total.toLocaleString()} {tab === 'deleted' ? 'deleted ' : tab === 'review' ? 'awaiting review ' : ''}transaction{total !== 1 ? 's' : ''}
         </p>
       )}
 
@@ -252,11 +278,13 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
           </div>
         ) : transactions.length === 0 ? (
           <EmptyState
-            icon={ArrowLeftRight}
-            title={tab === 'deleted' ? 'No deleted transactions' : 'No transactions found'}
+            icon={tab === 'review' ? ClipboardList : ArrowLeftRight}
+            title={tab === 'deleted' ? 'No deleted transactions' : tab === 'review' ? 'All caught up' : 'No transactions found'}
             description={
               tab === 'deleted'
                 ? 'Deleted transactions will appear here and can be restored.'
+                : tab === 'review'
+                ? 'Nothing waiting for review — imported transactions will show up here.'
                 : 'Add your first transaction or import from CSV.'
             }
             action={tab === 'active' ? { label: 'Add Transaction', onClick: () => setShowAdd(true) } : undefined}
@@ -267,11 +295,13 @@ export function TransactionsClient({ accounts, categories, tags }: Props) {
               <TransactionRow
                 key={tx.id}
                 transaction={tx}
-                onEdit={tab === 'active' ? () => setEditing(tx) : undefined}
-                onDelete={tab === 'active' ? handleDelete : undefined}
+                onEdit={tab !== 'deleted' ? () => setEditing(tx) : undefined}
+                onDelete={tab !== 'deleted' ? handleDelete : undefined}
                 onRestore={tab === 'deleted' ? handleRestore : undefined}
                 onValidate={tab === 'active' ? handleValidate : undefined}
                 onUnlink={tab === 'active' ? handleUnlink : undefined}
+                onApprove={tab === 'review' ? handleApprove : undefined}
+                reviewCategories={tab === 'review' ? categories : undefined}
               />
             ))}
           </div>

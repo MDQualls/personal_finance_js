@@ -92,6 +92,7 @@ export default function ImportPage() {
     if (!res.ok) { setError('Import failed.'); return }
     setResult(body.data)
     setStep('done')
+    router.refresh()
   }
 
   return (
@@ -186,6 +187,9 @@ export default function ImportPage() {
                   {result.errors.length > 0 && (
                     <li className="text-[#ef4444]">{result.errors.length} rows had errors</li>
                   )}
+                  {result.imported > 0 && (
+                    <li>Imported transactions are waiting in the review queue for category confirmation.</li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -202,8 +206,11 @@ export default function ImportPage() {
               </div>
             )}
 
-            <div className="flex justify-end">
-              <Button onClick={() => router.push('/transactions')}>View Transactions</Button>
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" onClick={() => router.push('/transactions')}>View Transactions</Button>
+              {result.imported > 0 && (
+                <Button onClick={() => router.push('/transactions/review')}>Review Imported Transactions</Button>
+              )}
             </div>
           </div>
         )}

@@ -14,6 +14,7 @@ const UpdateTransactionSchema = z.object({
   notes: z.string().max(1000).nullable().optional(),
   tagIds: z.array(z.string().cuid()).optional(),
   restore: z.boolean().optional(),
+  needsReview: z.boolean().optional(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

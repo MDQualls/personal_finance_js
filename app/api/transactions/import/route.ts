@@ -120,6 +120,7 @@ export async function POST(req: NextRequest) {
           categoryId,
           description,
           notes: row.notes ? sanitizeString(row.notes) : null,
+          needsReview: true,
         },
       })
 
