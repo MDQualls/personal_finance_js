@@ -52,9 +52,17 @@ export async function POST(req: NextRequest) {
   const body = CreateRecurringRuleSchema.safeParse(await req.json())
   if (!body.success) return apiError(body.error.format(), 400)
 
-  // plaidManaged guard: add when Plaid integration (P4-1) is implemented
-
   try {
+    if (body.data.autoPost) {
+      const account = await prisma.account.findUnique({ where: { id: body.data.accountId } })
+      if (account?.plaidManaged) {
+        return apiError(
+          'Auto-post is not allowed on Plaid-managed accounts. Set autoPost to false.',
+          422
+        )
+      }
+    }
+
     const rule = await prisma.recurringRule.create({
       data: { ...body.data, nextDate: new Date(body.data.nextDate) },
       include: { account: true, category: true },

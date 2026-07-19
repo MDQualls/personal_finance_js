@@ -14,7 +14,7 @@ export async function postDueRecurringRules(): Promise<{
       isActive: true,
       autoPost: true,
       nextDate: { lte: now },
-      // account: { plaidManaged: false } — add when Plaid integration (P4-1) is implemented
+      account: { plaidManaged: false }, // never auto-post to Plaid-managed accounts — Plaid is the sole source of truth
     },
   })
 

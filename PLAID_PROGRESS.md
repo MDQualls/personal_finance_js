@@ -10,7 +10,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 | 2 | Import Review Queue (CSV + Plaid) | Complete | Phase 1 |
 | 3 | Core Infrastructure (Plaid client, encryption) | Complete | Phase 1 |
 | 4 | API Routes (link-token, exchange-token, sync, items) | Complete | Phase 3 |
-| 5 | Reconciliation Guard (recurring engine + autoPost validation) | Not Started | Phase 4 |
+| 5 | Reconciliation Guard (recurring engine + autoPost validation) | Complete | Phase 4 |
 | 6 | Category Mapping & Amount Convention | Not Started | Phase 4, Phase 2 |
 | 7 | Frontend (Connect button, connections settings pages) | Not Started | Phase 4 |
 | 8 | Automated Tests | Not Started | Phases 2–7 |
@@ -133,10 +133,14 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 - No automated tests added yet — deliberately deferred to Phase 8, consistent with the existing phase split. The sync route's internals will still change in Phase 5 (balance sync, `plaidManaged` guard) and Phase 6 (real category map), so tests written now would need rewriting almost immediately.
 - `tsc --noEmit` clean, full suite still green (424/424 — no new tests this phase, see above). `npx prisma validate` clean. `eslint` could not be verified — pre-existing repo-wide issue (`@typescript-eslint/no-explicit-any` / `no-unused-vars` rule definitions not found for **any** file, confirmed on `next.config.js` and other unmodified files too — not something this session introduced. Worth fixing separately.
 
-## Phase 5 — Reconciliation Guard
-- [ ] `plaidManaged: false` filter added to due-rule query in `lib/recurringEngine.ts`
-- [ ] `autoPost` + `plaidManaged` validation (422) in `POST /api/recurring`
-- [ ] Balance sync at end of `POST /api/plaid/sync` (Plaid balance → `Account.balance`)
+## Phase 5 — Reconciliation Guard ✓
+**Status:** Complete — 2026-07-19
+- [x] `plaidManaged: false` filter added to due-rule query in `lib/recurringEngine.ts` — replaced the placeholder comment that was already there
+- [x] `autoPost` + `plaidManaged` validation (422) in `POST /api/recurring` — `app/api/recurring/route.test.ts` already had `prismaMock.account.findUnique.mockResolvedValue({ plaidManaged: false })` staged in its POST tests from a prior session, confirming this was the intended shape
+- [x] Balance sync at end of `POST /api/plaid/sync` (`accountsBalanceGet` → `Account.balance`, per PLAID.md's "Balance Sync" section) — closes the gap flagged in the Phase 4 notes above
+
+**Known gap — not closed this phase, flagging so it isn't forgotten:** `PATCH /api/recurring/[id]` does **not** enforce the `plaidManaged` guard. A rule could still be edited after creation to set `autoPost: true` on (or reassign to) a Plaid-managed account and bypass the check. Scoped out because: (1) the phase checklist only names `POST /api/recurring`, and (2) `app/api/recurring/[id]/route.test.ts`'s existing PATCH tests don't stub a rule/account lookup, so adding the fetch-then-validate logic needed for PATCH would require rewriting those tests rather than just extending them — treated as Phase 8 scope instead of expanding Phase 5 unprompted. Worth closing before Phase 10 (production cutover) actually connects real accounts.
+- [x] `tsc --noEmit` clean, full suite still green (424/424, no test changes needed — existing mocks already covered the new code paths). `prisma validate` clean.
 
 ## Phase 6 — Category Mapping & Amount Convention
 - [ ] `lib/plaidCategories.ts` — `PLAID_CATEGORY_MAP`
@@ -193,4 +197,6 @@ _(append here as work progresses)_
 
 **2026-07-19 — Session end:** Phases 1–3 complete this session (schema/migration, import review queue, core Plaid infrastructure). 424 tests passing, `tsc --noEmit` clean, all three phases committed locally (`fa1ef5b`, `0399e9c`, `b48982b` — 3 commits ahead of `origin/main`, not yet pushed). **Next session starts at Phase 4 — Plaid API Routes** (link-token, exchange-token, sync, items GET/DELETE). Phase 4's sync route must remember to set `needsReview: true` on every newly-added transaction (Phase 2 dependency, noted in Phase 4's checklist below). No `.env.local` Plaid/encryption values have been set yet — still the user's task per `PLAID_SETUP_CHECKLIST.md` Phase A, needed before Phase 9 (Sandbox verification) but not before Phase 4 can be built.
 
-**2026-07-19 — Phase 4 complete:** Built all 5 API routes (`link-token`, `exchange-token`, `sync`, `items` GET, `items/[id]` DELETE). `needsReview: true` confirmed wired on transaction creation in the sync route. See the Phase 4 section above for the full deviation list — notably: amount sign conversion was done now instead of deferred to Phase 6, `Account.balance` is intentionally NOT touched yet (Phase 5), category resolution is still a naive placeholder pending Phase 6's `PLAID_CATEGORY_MAP`, and no tests were added yet (deferred to Phase 8 since the sync route body will change again in Phases 5–6). 424 tests still green, `tsc --noEmit` and `prisma validate` clean. Not yet committed — awaiting user review. **Next session: Phase 5 — Reconciliation Guard** (`plaidManaged: false` filter in `lib/recurringEngine.ts`, `autoPost` + `plaidManaged` validation in `POST /api/recurring`, balance sync at the end of the sync route).
+**2026-07-19 — Phase 4 complete:** Built all 5 API routes (`link-token`, `exchange-token`, `sync`, `items` GET, `items/[id]` DELETE). `needsReview: true` confirmed wired on transaction creation in the sync route. See the Phase 4 section above for the full deviation list — notably: amount sign conversion was done now instead of deferred to Phase 6, `Account.balance` is intentionally NOT touched yet (Phase 5), category resolution is still a naive placeholder pending Phase 6's `PLAID_CATEGORY_MAP`, and no tests were added yet (deferred to Phase 8 since the sync route body will change again in Phases 5–6). 424 tests still green, `tsc --noEmit` and `prisma validate` clean. Committed as `3198d22`.
+
+**2026-07-19 — Phase 5 complete:** Wired the `plaidManaged: false` guard into `lib/recurringEngine.ts`'s due-rule query, added the `autoPost` + `plaidManaged` 422 validation to `POST /api/recurring`, and added balance sync (`accountsBalanceGet`) to the end of `POST /api/plaid/sync`. All three closed gaps that were explicitly called out or placeholder-commented in earlier phases. **Known gap carried forward: `PATCH /api/recurring/[id]` doesn't enforce the same guard yet** — see the Phase 5 section above for why it was scoped out (existing PATCH tests aren't set up for the required rule/account lookup) and a reminder to close it before Phase 10. 424 tests still green with zero test changes needed — the POST test file already had the `account.findUnique` mock staged from a prior session. Not yet committed — awaiting user review. **Next session: Phase 6 — Category Mapping & Amount Convention** (`lib/plaidCategories.ts` with a real `PLAID_CATEGORY_MAP`, replacing the naive fuzzy-match placeholder in the sync route's `resolveCategoryId()`; amount conversion itself is already done, from Phase 4).

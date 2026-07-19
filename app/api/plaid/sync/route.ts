@@ -118,6 +118,25 @@ export async function POST(req: NextRequest) {
       data: { lastCursor: cursor, lastSyncedAt: new Date() },
     })
 
+    // Plaid's balance is authoritative for Plaid-managed accounts — pull it directly rather than
+    // computing from transaction deltas, which drifts from pending transactions, fees, and interest.
+    for (const plaidAccount of item.accounts) {
+      if (!plaidAccount.accountId) continue
+
+      const balanceResponse = await plaidClient.accountsBalanceGet({
+        access_token: accessToken,
+        options: { account_ids: [plaidAccount.plaidAccountId] },
+      })
+
+      const balance = balanceResponse.data.accounts[0]?.balances.current
+      if (balance !== undefined && balance !== null) {
+        await prisma.account.update({
+          where: { id: plaidAccount.accountId },
+          data: { balance: toCents(balance) },
+        })
+      }
+    }
+
     return apiSuccess({ added: added.length, modified: modified.length, removed: removed.length })
   } catch (err) {
     console.error('[plaid:sync]', err)
