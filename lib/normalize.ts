@@ -4,6 +4,10 @@ type MerchantRule = {
   displayName: string
 }
 
+export function sanitizeString(raw: string): string {
+  return raw.replace(/[^\x20-\x7E -￿]/g, '').trim()
+}
+
 export function normalizeDescription(raw: string, rules: MerchantRule[]): string {
   for (const rule of rules) {
     const matches = rule.isRegex

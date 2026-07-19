@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
 import { toCents } from '@/lib/money'
-import { normalizeDescription } from '@/lib/normalize'
+import { normalizeDescription, sanitizeString } from '@/lib/normalize'
 
 const ImportRowSchema = z.object({
   date: z.string(),
@@ -25,10 +25,6 @@ function dedupeHash(date: string, amount: string, description: string): string {
   return createHash('sha256')
     .update(`${date}|${amount}|${description.trim().toLowerCase()}`)
     .digest('hex')
-}
-
-function sanitizeString(raw: string): string {
-  return raw.replace(/[^\x20-\x7E -￿]/g, '').trim()
 }
 
 export async function POST(req: NextRequest) {

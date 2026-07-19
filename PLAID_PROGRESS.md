@@ -9,7 +9,7 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 | 1 | Schema & Migration (Plaid) | Complete | — |
 | 2 | Import Review Queue (CSV + Plaid) | Complete | Phase 1 |
 | 3 | Core Infrastructure (Plaid client, encryption) | Complete | Phase 1 |
-| 4 | API Routes (link-token, exchange-token, sync, items) | Not Started | Phase 3 |
+| 4 | API Routes (link-token, exchange-token, sync, items) | Complete | Phase 3 |
 | 5 | Reconciliation Guard (recurring engine + autoPost validation) | Not Started | Phase 4 |
 | 6 | Category Mapping & Amount Convention | Not Started | Phase 4, Phase 2 |
 | 7 | Frontend (Connect button, connections settings pages) | Not Started | Phase 4 |
@@ -117,12 +117,21 @@ Tracks implementation progress for P4-1 (Plaid Integration, see `BACKLOG.md` and
 
 **Verified:** `tsc --noEmit` clean, full suite green (424/424 — 7 new crypto tests). All routes still compile with zero server errors after adding the new lib files (curl + docker logs check).
 
-## Phase 4 — API Routes
-- [ ] `POST /api/plaid/link-token`
-- [ ] `POST /api/plaid/exchange-token`
-- [ ] `POST /api/plaid/sync` (cursor-based, paginated, upsert + soft-delete removed) — **sets `needsReview: true` on every newly-added transaction** (see Phase 2 note)
-- [ ] `GET /api/plaid/items` (never returns `accessToken`)
-- [ ] `DELETE /api/plaid/items/[id]`
+## Phase 4 — API Routes ✓
+**Status:** Complete — 2026-07-19
+- [x] `POST /api/plaid/link-token`
+- [x] `POST /api/plaid/exchange-token` — creates `PlaidItem` + unlinked `PlaidAccount` rows (`accountId` null); mapping to local `Account` records happens later via the Phase 7 connections UI, not automatically here
+- [x] `POST /api/plaid/sync` (cursor-based, paginated, upsert + soft-delete removed) — **sets `needsReview: true` on every newly-created transaction** (Phase 2 dependency, confirmed wired)
+- [x] `GET /api/plaid/items` (never returns `accessToken` — response is explicitly reshaped, not a raw Prisma passthrough)
+- [x] `DELETE /api/plaid/items/[id]`
+
+**Deviations / notes:**
+- Amount sign conversion (Plaid positive = expense → our negative cents) was implemented now rather than deferred to Phase 6 as originally scoped — it's pure correctness with no dependency on the category map, and shipping a known-wrong sign felt worse than just doing it right the first time. `toLocalAmountCents()` in `app/api/plaid/sync/route.ts`.
+- Category resolution in the sync route is a **naive contains-match placeholder** (`resolveCategoryId()`), matching the original PLAID.md-era example. Phase 6 still needs to replace this with `lib/plaidCategories.ts`'s `PLAID_CATEGORY_MAP` — not a real improvement over fuzzy matching until that lookup table exists.
+- Descriptions from Plaid now go through the same `sanitizeString` + `normalizeDescription` pipeline as CSV import (merchant rules apply to Plaid transactions too). Extracted `sanitizeString` out of `app/api/transactions/import/route.ts` into `lib/normalize.ts` since it's now a shared concern across both import sources.
+- **`Account.balance` is NOT updated by this sync route yet** — that's explicitly Phase 5 (Reconciliation Guard) work per PLAID.md's "Balance Sync" section, which pulls Plaid's authoritative balance rather than computing deltas from transaction amounts (avoids drift from pending transactions/fees). This means running a real sync before Phase 5 lands would leave account balances stale at whatever they were set to when the local `Account` was created/mapped. Not a practical risk yet — nothing can invoke this route today: no `.env.local` Plaid credentials, no frontend Connect/Sync button (Phase 7), no Sandbox verification (Phase 9) done.
+- No automated tests added yet — deliberately deferred to Phase 8, consistent with the existing phase split. The sync route's internals will still change in Phase 5 (balance sync, `plaidManaged` guard) and Phase 6 (real category map), so tests written now would need rewriting almost immediately.
+- `tsc --noEmit` clean, full suite still green (424/424 — no new tests this phase, see above). `npx prisma validate` clean. `eslint` could not be verified — pre-existing repo-wide issue (`@typescript-eslint/no-explicit-any` / `no-unused-vars` rule definitions not found for **any** file, confirmed on `next.config.js` and other unmodified files too — not something this session introduced. Worth fixing separately.
 
 ## Phase 5 — Reconciliation Guard
 - [ ] `plaidManaged: false` filter added to due-rule query in `lib/recurringEngine.ts`
@@ -183,3 +192,5 @@ _(append here as work progresses)_
 **2026-07-19:** Import Review Queue scoped and inserted as new Phase 2 (renumbering all subsequent phases, old 2→3 through old 10→11). Covers both CSV and Plaid imports. Key design calls: new `needsReview` field (not reusing `isValidated`), excluded from reports until approved, `/transactions/review` as a tab on the existing Transactions page with a sidebar badge, inline category dropdown + expandable row detail (reusing the P2-9 transfer-link expand pattern) instead of a modal or separate popup. Bulk-approve explicitly deferred — revisit only if per-row approval becomes real friction once Plaid volume is flowing.
 
 **2026-07-19 — Session end:** Phases 1–3 complete this session (schema/migration, import review queue, core Plaid infrastructure). 424 tests passing, `tsc --noEmit` clean, all three phases committed locally (`fa1ef5b`, `0399e9c`, `b48982b` — 3 commits ahead of `origin/main`, not yet pushed). **Next session starts at Phase 4 — Plaid API Routes** (link-token, exchange-token, sync, items GET/DELETE). Phase 4's sync route must remember to set `needsReview: true` on every newly-added transaction (Phase 2 dependency, noted in Phase 4's checklist below). No `.env.local` Plaid/encryption values have been set yet — still the user's task per `PLAID_SETUP_CHECKLIST.md` Phase A, needed before Phase 9 (Sandbox verification) but not before Phase 4 can be built.
+
+**2026-07-19 — Phase 4 complete:** Built all 5 API routes (`link-token`, `exchange-token`, `sync`, `items` GET, `items/[id]` DELETE). `needsReview: true` confirmed wired on transaction creation in the sync route. See the Phase 4 section above for the full deviation list — notably: amount sign conversion was done now instead of deferred to Phase 6, `Account.balance` is intentionally NOT touched yet (Phase 5), category resolution is still a naive placeholder pending Phase 6's `PLAID_CATEGORY_MAP`, and no tests were added yet (deferred to Phase 8 since the sync route body will change again in Phases 5–6). 424 tests still green, `tsc --noEmit` and `prisma validate` clean. Not yet committed — awaiting user review. **Next session: Phase 5 — Reconciliation Guard** (`plaidManaged: false` filter in `lib/recurringEngine.ts`, `autoPost` + `plaidManaged` validation in `POST /api/recurring`, balance sync at the end of the sync route).
