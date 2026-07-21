@@ -37,8 +37,8 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
   const [search, setSearch] = useState('')
   const [accountFilter, setAccountFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
-  const [yearFilter, setYearFilter] = useState<number | ''>(new Date().getFullYear())
-  const [monthFilter, setMonthFilter] = useState<number | ''>(new Date().getMonth() + 1)
+  const [yearFilter, setYearFilter] = useState<number | ''>(initialTab === 'review' ? '' : new Date().getFullYear())
+  const [monthFilter, setMonthFilter] = useState<number | ''>(initialTab === 'review' ? '' : new Date().getMonth() + 1)
   const [hideTransfers, setHideTransfers] = useState(false)
 
   const fetchTransactions = useCallback(async () => {
@@ -79,6 +79,10 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
   function handleTabChange(next: FilterTab) {
     setTab(next)
     setPage(1)
+    if (next === 'review') {
+      setYearFilter('')
+      setMonthFilter('')
+    }
   }
 
   async function handleDelete(id: string) {
@@ -314,7 +318,7 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
           <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
             Previous
           </Button>
-          <span className="text-[13px] text-[#6b7a8d] self-center">Page {page}</span>
+          <span className="text-[13px] text-[#6b7a8d] self-center">Page {page} of {Math.max(1, Math.ceil(total / 50))}</span>
           <Button variant="ghost" size="sm" disabled={transactions.length < 50} onClick={() => setPage(p => p + 1)}>
             Next
           </Button>

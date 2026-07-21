@@ -24,8 +24,24 @@ export function TransferSuggestionsPanel({ onTransferConfirmed }: Props) {
 
   if (dismissed || candidates.length === 0) return null
 
-  function dismissCandidate(fromId: string) {
+  function removeCandidate(fromId: string) {
     setCandidates((prev) => prev.filter((c) => c.fromTransaction.id !== fromId))
+  }
+
+  async function dismissCandidate(candidate: TransferCandidate) {
+    removeCandidate(candidate.fromTransaction.id)
+    try {
+      await fetch('/api/transfers/candidates/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromTransactionId: candidate.fromTransaction.id,
+          toTransactionId: candidate.toTransaction.id,
+        }),
+      })
+    } catch {
+      // best-effort — worst case the candidate reappears on next load
+    }
   }
 
   async function confirmTransfer(candidate: TransferCandidate) {
@@ -41,7 +57,7 @@ export function TransferSuggestionsPanel({ onTransferConfirmed }: Props) {
         }),
       })
       if (res.ok) {
-        dismissCandidate(key)
+        removeCandidate(key)
         onTransferConfirmed?.()
       }
     } finally {
@@ -117,7 +133,7 @@ export function TransferSuggestionsPanel({ onTransferConfirmed }: Props) {
                   Confirm
                 </button>
                 <button
-                  onClick={() => dismissCandidate(candidate.fromTransaction.id)}
+                  onClick={() => dismissCandidate(candidate)}
                   className="h-7 px-3 rounded-[6px] text-[12px] font-medium text-[#6b7a8d] hover:text-[#1a2332] hover:bg-white transition-colors"
                 >
                   Not a Transfer

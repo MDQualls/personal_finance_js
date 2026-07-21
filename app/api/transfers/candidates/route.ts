@@ -14,16 +14,23 @@ export async function GET(req: NextRequest) {
     // Look back 90 days for candidates — keeps the result set manageable
     const since = subDays(new Date(), 90)
 
-    const transactions = await prisma.transaction.findMany({
-      where: {
-        deletedAt: null,
-        isTransfer: false,
-        date: { gte: since },
-      },
-      include: { category: true, account: true, tags: true },
-    })
+    const [transactions, dismissed] = await Promise.all([
+      prisma.transaction.findMany({
+        where: {
+          deletedAt: null,
+          isTransfer: false,
+          date: { gte: since },
+        },
+        include: { category: true, account: true, tags: true },
+      }),
+      prisma.dismissedTransferCandidate.findMany(),
+    ])
 
-    const candidates = detectTransferCandidates(transactions)
+    const dismissedPairs = new Set(dismissed.map((d) => `${d.fromTransactionId}:${d.toTransactionId}`))
+
+    const candidates = detectTransferCandidates(transactions).filter(
+      (c) => !dismissedPairs.has(`${c.fromTransaction.id}:${c.toTransaction.id}`)
+    )
 
     return apiSuccess(candidates, { count: candidates.length })
   } catch (err) {
