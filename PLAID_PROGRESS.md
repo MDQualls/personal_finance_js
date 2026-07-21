@@ -281,3 +281,11 @@ _(append here as work progresses)_
 3. Phase 11 — Documentation & Closeout (`BACKLOG.md`, `CLAUDE.md` if warranted, final memory update).
 
 User was explicit: all of the above must be fully handled next session before moving on to P5 reporting enhancements.
+
+**2026-07-20 — Session end (Phase 10 still in progress, review pass continuing):** User continued manually reviewing/approving synced transactions and surfaced three small bugs along the way, all found and fixed reactively during this session (not part of the planned Phase 10/11 checklist):
+1. Sidebar "Transactions" badge showed 99+ while `/transactions/review` said "All caught up" — the review tab's year/month filters defaulted to the current month while the badge counted `needsReview` all-time. Older `needsReview` rows from the Plaid historical backfill were invisible in the UI but still counted. Fixed: review tab now defaults to no date filter (`app/(dashboard)/transactions/TransactionsClient.tsx`).
+2. "Not a Transfer" in `TransferSuggestionsPanel` only cleared local React state — dismissed candidates reappeared on every reload since nothing was persisted. Added a `DismissedTransferCandidate` table (migration `20260720234651_add_dismissed_transfer_candidate`) and a new `POST /api/transfers/candidates/dismiss` route; `GET /api/transfers/candidates` now filters detected pairs against it.
+3. Transactions pagination showed "Page X" with no total — changed to "Page X of Y".
+4. User asked directly whether account balances should update when approving review-queue items — confirmed as expected behavior, not a bug: Plaid-managed account balances come from `accountsBalanceGet` in `POST /api/plaid/sync`, not from local transaction math, so review/approve actions correctly don't touch balance. No code change.
+
+All committed as `33c4ca2`, 483/483 tests passing, `tsc --noEmit` clean. **User's review-queue pass is still not confirmed complete** — the three items from the prior session end (recurring-rule guard, transfer detection + category refinement, Phase 11 docs) are all still open and unstarted. Next session should still open by confirming review-pass status before touching those three, per the user's standing instruction.
