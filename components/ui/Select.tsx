@@ -3,12 +3,13 @@ import { forwardRef } from 'react'
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string
   error?: string
-  options: { value: string; label: string }[]
+  options?: { value: string; label: string }[]
+  groups?: { label: string; options: { value: string; label: string }[] }[]
   placeholder?: string
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, options, placeholder, className = '', id, ...props },
+  { label, error, options, groups, placeholder, className = '', id, ...props },
   ref
 ) {
   const selectId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
@@ -39,10 +40,19 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
             {placeholder}
           </option>
         )}
-        {options.map((opt) => (
+        {options?.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>
+        ))}
+        {groups?.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
       {error && <p className="text-[12px] text-[#ef4444]">{error}</p>}

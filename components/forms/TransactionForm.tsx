@@ -53,16 +53,18 @@ export function TransactionForm({ accounts, categories, initialValues, onSuccess
   async function openLinkModal() {
     if (!initialValues) return
     // Fetch transactions that are equal/opposite amount, different account, not yet a transfer
+    const baseDate = new Date(initialValues.date).getTime()
+    const FIVE_DAYS = 5 * 24 * 60 * 60 * 1000
     const params = new URLSearchParams({
-      limit: '50',
+      limit: '200',
       excludeTransfers: 'true',
+      from: new Date(baseDate - FIVE_DAYS).toISOString(),
+      to: new Date(baseDate + FIVE_DAYS).toISOString(),
     })
     const res = await fetch(`/api/transactions?${params}`)
     const body = await res.json()
     const all: Transaction[] = body.data ?? []
     const targetAmount = -initialValues.amount // opposite sign
-    const baseDate = new Date(initialValues.date).getTime()
-    const FIVE_DAYS = 5 * 24 * 60 * 60 * 1000
     const compatible = all.filter(
       (tx) =>
         tx.id !== initialValues.id &&
@@ -142,16 +144,13 @@ export function TransactionForm({ accounts, categories, initialValues, onSuccess
 
   const accountOptions = accounts.map((a) => ({ value: a.id, label: a.name }))
 
-  const categoryOptions: { value: string; label: string }[] = []
-  for (const cat of categories) {
-    if (cat.children.length === 0) {
-      categoryOptions.push({ value: cat.id, label: cat.name })
-    } else {
-      for (const sub of cat.children) {
-        categoryOptions.push({ value: sub.id, label: sub.name })
-      }
-    }
-  }
+  const categoryGroups = categories.map((cat) => ({
+    label: cat.name,
+    options: [
+      { value: cat.id, label: cat.name },
+      ...cat.children.map((sub) => ({ value: sub.id, label: `  ${sub.name}` })),
+    ],
+  }))
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -189,7 +188,7 @@ export function TransactionForm({ accounts, categories, initialValues, onSuccess
 
       <Select
         label="Category"
-        options={categoryOptions}
+        groups={categoryGroups}
         placeholder="Select category…"
         error={errors.categoryId?.message}
         {...register('categoryId')}

@@ -108,16 +108,13 @@ export function SubscriptionForm({ categories, initialValues, onSuccess }: Subsc
     onSuccess?.()
   }
 
-  const categoryOptions: { value: string; label: string }[] = []
-  for (const cat of categories) {
-    if (cat.children.length === 0) {
-      categoryOptions.push({ value: cat.id, label: cat.name })
-    } else {
-      for (const sub of cat.children) {
-        categoryOptions.push({ value: sub.id, label: sub.name })
-      }
-    }
-  }
+  const categoryGroups = categories.map((cat) => ({
+    label: cat.name,
+    options: [
+      { value: cat.id, label: cat.name },
+      ...cat.children.map((sub) => ({ value: sub.id, label: `  ${sub.name}` })),
+    ],
+  }))
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -165,7 +162,7 @@ export function SubscriptionForm({ categories, initialValues, onSuccess }: Subsc
 
       <Select
         label="Category"
-        options={categoryOptions}
+        groups={categoryGroups}
         placeholder="Select category…"
         error={errors.categoryId?.message}
         {...register('categoryId')}
