@@ -25,6 +25,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!body.success) return apiError(body.error.format(), 400)
 
   try {
+    const existing = await prisma.recurringRule.findUnique({ where: { id: params.id } })
+    const effectiveAutoPost = body.data.autoPost ?? existing?.autoPost
+    const effectiveAccountId = body.data.accountId ?? existing?.accountId
+
+    if (effectiveAutoPost && effectiveAccountId) {
+      const account = await prisma.account.findUnique({ where: { id: effectiveAccountId } })
+      if (account?.plaidManaged) {
+        return apiError(
+          'Auto-post is not allowed on Plaid-managed accounts. Set autoPost to false.',
+          422
+        )
+      }
+    }
+
     const rule = await prisma.recurringRule.update({
       where: { id: params.id },
       data: {

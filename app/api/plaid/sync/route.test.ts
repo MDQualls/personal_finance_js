@@ -208,8 +208,8 @@ describe('POST /api/plaid/sync', () => {
             account_id: 'plaid_acct_1',
             amount: 20,
             date: '2026-05-01',
-            name: 'BANK FEE',
-            personal_finance_category: { primary: 'BANK_FEES' },
+            name: 'US POST OFFICE',
+            personal_finance_category: { primary: 'GOVERNMENT_AND_NON_PROFIT' },
           },
         ],
       })
@@ -223,6 +223,41 @@ describe('POST /api/plaid/sync', () => {
     expect(prismaMock.transaction.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ categoryId: 'cuid_category_uncategorized' }),
+      })
+    )
+  })
+
+  it('maps BANK_FEES to the Bank Fee category', async () => {
+    mockSession()
+    const mappedAccount = mockPlaidAccount({ plaidAccountId: 'plaid_acct_1', accountId: 'cuid_account_1' })
+    prismaMock.plaidItem.findUnique.mockResolvedValue(
+      { ...mockPlaidItem({ id: ITEM_ID }), accounts: [mappedAccount] } as never
+    )
+    ;(plaidClient.transactionsSync as jest.Mock).mockResolvedValue(
+      emptySyncPage({
+        added: [
+          {
+            transaction_id: 'ptx_5',
+            account_id: 'plaid_acct_1',
+            amount: 15,
+            date: '2026-05-01',
+            name: 'WIRE FEE',
+            personal_finance_category: { primary: 'BANK_FEES' },
+          },
+        ],
+      })
+    )
+    prismaMock.category.findFirst.mockResolvedValue(mockCategory({ id: 'cuid_category_bank_fee', name: 'Bank Fee' }) as never)
+    prismaMock.transaction.upsert.mockResolvedValue({} as never)
+
+    await POST(makeRequest(ITEM_ID) as never)
+
+    expect(prismaMock.category.findFirst).toHaveBeenCalledWith({
+      where: { name: 'Bank Fee', isActive: true },
+    })
+    expect(prismaMock.transaction.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ categoryId: 'cuid_category_bank_fee' }),
       })
     )
   })

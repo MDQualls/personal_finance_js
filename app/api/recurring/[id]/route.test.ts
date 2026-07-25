@@ -19,6 +19,9 @@ describe('PATCH /api/recurring/[id]', () => {
 
   it('updates rule fields', async () => {
     mockSession()
+    prismaMock.recurringRule.findUnique.mockResolvedValue(
+      mockRecurringRule({ autoPost: false }) as never
+    )
     prismaMock.recurringRule.update.mockResolvedValue(
       mockRecurringRule({ name: 'Updated' }) as never
     )
@@ -37,6 +40,9 @@ describe('PATCH /api/recurring/[id]', () => {
 
   it('converts nextDate string to Date object', async () => {
     mockSession()
+    prismaMock.recurringRule.findUnique.mockResolvedValue(
+      mockRecurringRule({ autoPost: false }) as never
+    )
     prismaMock.recurringRule.update.mockResolvedValue(mockRecurringRule() as never)
 
     const req = new Request(`http://localhost/api/recurring/${RULE_ID}`, {
@@ -62,6 +68,78 @@ describe('PATCH /api/recurring/[id]', () => {
     const res = await PATCH(req as never, params)
 
     expect(res.status).toBe(400)
+  })
+
+  it('rejects flipping autoPost to true on a Plaid-managed account with 422', async () => {
+    mockSession()
+    prismaMock.recurringRule.findUnique.mockResolvedValue(
+      mockRecurringRule({ autoPost: false, accountId: 'cuid_account_plaid' }) as never
+    )
+    prismaMock.account.findUnique.mockResolvedValue({ plaidManaged: true } as never)
+
+    const req = new Request(`http://localhost/api/recurring/${RULE_ID}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ autoPost: true }),
+    })
+    const res = await PATCH(req as never, params)
+
+    expect(res.status).toBe(422)
+    expect(prismaMock.recurringRule.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects reassigning an already-autoPost rule to a Plaid-managed account with 422', async () => {
+    mockSession()
+    prismaMock.recurringRule.findUnique.mockResolvedValue(
+      mockRecurringRule({ autoPost: true, accountId: 'cuid_account_manual' }) as never
+    )
+    prismaMock.account.findUnique.mockResolvedValue({ plaidManaged: true } as never)
+
+    const req = new Request(`http://localhost/api/recurring/${RULE_ID}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ accountId: 'cuid_account_plaid' }),
+    })
+    const res = await PATCH(req as never, params)
+
+    expect(res.status).toBe(422)
+    expect(prismaMock.recurringRule.update).not.toHaveBeenCalled()
+  })
+
+  it('allows flipping autoPost to true on a non-Plaid-managed account', async () => {
+    mockSession()
+    prismaMock.recurringRule.findUnique.mockResolvedValue(
+      mockRecurringRule({ autoPost: false, accountId: 'cuid_account_manual' }) as never
+    )
+    prismaMock.account.findUnique.mockResolvedValue({ plaidManaged: false } as never)
+    prismaMock.recurringRule.update.mockResolvedValue(
+      mockRecurringRule({ autoPost: true }) as never
+    )
+
+    const req = new Request(`http://localhost/api/recurring/${RULE_ID}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ autoPost: true }),
+    })
+    const res = await PATCH(req as never, params)
+
+    expect(res.status).toBe(200)
+  })
+
+  it('skips the account lookup entirely when the effective autoPost is false', async () => {
+    mockSession()
+    prismaMock.recurringRule.findUnique.mockResolvedValue(
+      mockRecurringRule({ autoPost: false, accountId: 'cuid_account_plaid' }) as never
+    )
+    prismaMock.recurringRule.update.mockResolvedValue(
+      mockRecurringRule({ name: 'Renamed' }) as never
+    )
+
+    const req = new Request(`http://localhost/api/recurring/${RULE_ID}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: 'Renamed' }),
+    })
+    const res = await PATCH(req as never, params)
+
+    expect(res.status).toBe(200)
+    expect(prismaMock.account.findUnique).not.toHaveBeenCalled()
   })
 })
 
