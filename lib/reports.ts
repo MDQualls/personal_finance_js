@@ -2,7 +2,7 @@ import { prisma } from './prisma'
 import { format, formatPeriodKey } from './dates'
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { monthlyEquivalent } from './money'
-import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, CostFloor } from '@/types'
+import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, CostFloor, ExpenseSplit, ExpenseSplitCategory } from '@/types'
 
 export async function getSpendingByCategory(from: Date, to: Date): Promise<SpendingByCategory[]> {
   const transactions = await prisma.transaction.findMany({
@@ -80,6 +80,75 @@ export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
     net: income - expenses,
     byCategory,
   }))
+}
+
+export async function getExpenseSplit(from: Date, to: Date): Promise<ExpenseSplit> {
+  const [transactions, recurringExpenseRules, subscriptions] = await Promise.all([
+    prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        isTransfer: false,
+        needsReview: false,
+        date: { gte: from, lte: to },
+        amount: { lt: 0 },
+      },
+      include: { category: true },
+    }),
+    prisma.recurringRule.findMany({
+      where: { isActive: true, type: 'EXPENSE' },
+      select: { categoryId: true },
+    }),
+    prisma.subscription.findMany({
+      where: { isActive: true },
+      select: { categoryId: true },
+    }),
+  ])
+
+  const fixedCategoryIds = new Set([
+    ...recurringExpenseRules.map((r) => r.categoryId),
+    ...subscriptions.map((s) => s.categoryId),
+  ])
+
+  const fixedMap = new Map<string, { name: string; color: string; amount: number }>()
+  const variableMap = new Map<string, { name: string; color: string; amount: number }>()
+
+  for (const tx of transactions) {
+    const bucket = fixedCategoryIds.has(tx.categoryId) ? fixedMap : variableMap
+    const existing = bucket.get(tx.categoryId)
+    if (existing) {
+      existing.amount += Math.abs(tx.amount)
+    } else {
+      bucket.set(tx.categoryId, { name: tx.category.name, color: tx.category.color, amount: Math.abs(tx.amount) })
+    }
+  }
+
+  const fixedTotal = [...fixedMap.values()].reduce((sum, c) => sum + c.amount, 0)
+  const variableTotal = [...variableMap.values()].reduce((sum, c) => sum + c.amount, 0)
+  const overallTotal = fixedTotal + variableTotal
+
+  const toCategories = (map: Map<string, { name: string; color: string; amount: number }>): ExpenseSplitCategory[] =>
+    [...map.entries()]
+      .map(([categoryId, { name, color, amount }]) => ({
+        categoryId,
+        categoryName: name,
+        color,
+        amount,
+        percentage: overallTotal > 0 ? Math.round((amount / overallTotal) * 100) : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+
+  return {
+    fixed: {
+      total: fixedTotal,
+      percentage: overallTotal > 0 ? Math.round((fixedTotal / overallTotal) * 100) : 0,
+      categories: toCategories(fixedMap),
+    },
+    variable: {
+      total: variableTotal,
+      percentage: overallTotal > 0 ? Math.round((variableTotal / overallTotal) * 100) : 0,
+      categories: toCategories(variableMap),
+    },
+  }
 }
 
 export async function getCostFloor(): Promise<CostFloor> {

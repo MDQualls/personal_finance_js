@@ -246,6 +246,19 @@ export type CostFloor = {
   totalMonthly: number // cents
 }
 
+export type ExpenseSplitCategory = {
+  categoryId: string
+  categoryName: string
+  color: string
+  amount: number // cents
+  percentage: number // % of overall (fixed + variable) total
+}
+
+export type ExpenseSplit = {
+  fixed: { total: number; percentage: number; categories: ExpenseSplitCategory[] }
+  variable: { total: number; percentage: number; categories: ExpenseSplitCategory[] }
+}
+
 export type TrendSummary = {
   avgExpenses: number // cents, mean across the period
   avgIncome: number // cents, mean across the period

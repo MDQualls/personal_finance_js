@@ -1,7 +1,17 @@
-import { getCostFloor } from './reports'
+import { getCostFloor, getExpenseSplit } from './reports'
 import { prismaMock } from './__mocks__/prisma'
 import { mockRecurringRule } from '@/__tests__/factories/recurringRule'
 import { mockSubscription } from '@/__tests__/factories/subscription'
+import { mockTransaction } from '@/__tests__/factories/transaction'
+import { mockCategory } from '@/__tests__/factories/category'
+
+const FROM = new Date('2026-07-01T00:00:00Z')
+const TO = new Date('2026-07-31T23:59:59Z')
+
+const txWithCategory = (categoryId: string, amount: number, categoryOverrides = {}) => ({
+  ...mockTransaction({ categoryId, amount }),
+  category: mockCategory({ id: categoryId, name: `Category ${categoryId}`, color: '#000000', ...categoryOverrides }),
+})
 
 describe('getCostFloor', () => {
   it('sums monthly-equivalent active EXPENSE recurring rules and active subscriptions', async () => {
@@ -57,5 +67,128 @@ describe('getCostFloor', () => {
     const result = await getCostFloor()
 
     expect(result).toEqual({ recurringExpenses: 0, subscriptions: 0, totalMonthly: 0 })
+  })
+})
+
+describe('getExpenseSplit', () => {
+  it('classifies a transaction as fixed when its category has an active EXPENSE recurring rule', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([
+      txWithCategory('cuid_category_rent', -150000),
+    ] as never)
+    prismaMock.recurringRule.findMany.mockResolvedValue([
+      { categoryId: 'cuid_category_rent' },
+    ] as never)
+    prismaMock.subscription.findMany.mockResolvedValue([])
+
+    const result = await getExpenseSplit(FROM, TO)
+
+    expect(result.fixed.total).toBe(150000)
+    expect(result.variable.total).toBe(0)
+    expect(result.fixed.categories).toEqual([
+      { categoryId: 'cuid_category_rent', categoryName: 'Category cuid_category_rent', color: '#000000', amount: 150000, percentage: 100 },
+    ])
+  })
+
+  it('classifies a transaction as fixed when its category has an active subscription', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([
+      txWithCategory('cuid_category_streaming', -1599),
+    ] as never)
+    prismaMock.recurringRule.findMany.mockResolvedValue([])
+    prismaMock.subscription.findMany.mockResolvedValue([
+      { categoryId: 'cuid_category_streaming' },
+    ] as never)
+
+    const result = await getExpenseSplit(FROM, TO)
+
+    expect(result.fixed.total).toBe(1599)
+    expect(result.variable.total).toBe(0)
+  })
+
+  it('classifies a transaction as variable when its category has no active recurring rule or subscription', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([
+      txWithCategory('cuid_category_dining', -4500),
+    ] as never)
+    prismaMock.recurringRule.findMany.mockResolvedValue([])
+    prismaMock.subscription.findMany.mockResolvedValue([])
+
+    const result = await getExpenseSplit(FROM, TO)
+
+    expect(result.fixed.total).toBe(0)
+    expect(result.variable.total).toBe(4500)
+  })
+
+  it('does not treat a category as fixed from an inactive recurring rule or subscription', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([
+      txWithCategory('cuid_category_rent', -150000),
+    ] as never)
+    // Simulates the query already filtering to isActive: true — an inactive rule on this
+    // category would never appear in what findMany resolves to, so it stays variable.
+    prismaMock.recurringRule.findMany.mockResolvedValue([])
+    prismaMock.subscription.findMany.mockResolvedValue([])
+
+    const result = await getExpenseSplit(FROM, TO)
+
+    expect(result.variable.total).toBe(150000)
+  })
+
+  it('computes percentages relative to the combined fixed + variable total', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([
+      txWithCategory('cuid_category_rent', -75000),
+      txWithCategory('cuid_category_dining', -25000),
+    ] as never)
+    prismaMock.recurringRule.findMany.mockResolvedValue([{ categoryId: 'cuid_category_rent' }] as never)
+    prismaMock.subscription.findMany.mockResolvedValue([])
+
+    const result = await getExpenseSplit(FROM, TO)
+
+    expect(result.fixed.percentage).toBe(75)
+    expect(result.variable.percentage).toBe(25)
+  })
+
+  it('aggregates multiple transactions in the same category into one bucket entry', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([
+      txWithCategory('cuid_category_dining', -2000),
+      txWithCategory('cuid_category_dining', -3000),
+    ] as never)
+    prismaMock.recurringRule.findMany.mockResolvedValue([])
+    prismaMock.subscription.findMany.mockResolvedValue([])
+
+    const result = await getExpenseSplit(FROM, TO)
+
+    expect(result.variable.categories).toHaveLength(1)
+    expect(result.variable.categories[0].amount).toBe(5000)
+  })
+
+  it('queries transactions scoped to the given date range, non-transfer, approved, expense-only', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([])
+    prismaMock.recurringRule.findMany.mockResolvedValue([])
+    prismaMock.subscription.findMany.mockResolvedValue([])
+
+    await getExpenseSplit(FROM, TO)
+
+    expect(prismaMock.transaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deletedAt: null,
+          isTransfer: false,
+          needsReview: false,
+          date: { gte: FROM, lte: TO },
+          amount: { lt: 0 },
+        },
+      })
+    )
+  })
+
+  it('returns zeroed buckets with no categories when there are no expense transactions', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([])
+    prismaMock.recurringRule.findMany.mockResolvedValue([])
+    prismaMock.subscription.findMany.mockResolvedValue([])
+
+    const result = await getExpenseSplit(FROM, TO)
+
+    expect(result).toEqual({
+      fixed: { total: 0, percentage: 0, categories: [] },
+      variable: { total: 0, percentage: 0, categories: [] },
+    })
   })
 })

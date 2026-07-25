@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/money'
 import { summarizeTrends } from '@/lib/trendSummary'
 import Link from 'next/link'
-import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor } from '@/types'
+import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor, ExpenseSplit } from '@/types'
 
 export default function ReportsPage() {
   const [spending, setSpending] = useState<SpendingByCategory[]>([])
@@ -19,6 +19,7 @@ export default function ReportsPage() {
   const [netWorth, setNetWorth] = useState<NetWorthSnapshot[]>([])
   const [budgetActual, setBudgetActual] = useState<BudgetActualRow[]>([])
   const [costFloor, setCostFloor] = useState<CostFloor | null>(null)
+  const [expenseSplit, setExpenseSplit] = useState<ExpenseSplit | null>(null)
   const [loading, setLoading] = useState(true)
 
   const now = new Date()
@@ -33,12 +34,14 @@ export default function ReportsPage() {
       fetch('/api/reports/net-worth?months=12').then((r) => r.json()),
       fetch(`/api/reports/budget-actual?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
       fetch('/api/reports/cost-floor').then((r) => r.json()),
-    ]).then(([s, t, n, b, c]) => {
+      fetch(`/api/reports/expense-split?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
+    ]).then(([s, t, n, b, c, e]) => {
       setSpending(s.data ?? [])
       setTrends(t.data ?? [])
       setNetWorth(n.data ?? [])
       setBudgetActual(b.data ?? [])
       setCostFloor(c.data ?? null)
+      setExpenseSplit(e.data ?? null)
       setLoading(false)
     })
   }, [from, to])
@@ -157,6 +160,67 @@ export default function ReportsPage() {
               </div>
             </Card>
           </div>
+
+          {expenseSplit && (
+            <Card>
+              <CardHeader
+                title="Fixed vs. Variable Expenses"
+                subtitle="Categories with an active recurring rule or subscription count as fixed"
+              />
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[13px] font-medium font-heading text-[#1a2332]">Fixed / Committed</span>
+                    <span className="text-[13px] font-semibold font-tabular text-[#1a2332]">
+                      {formatCurrency(expenseSplit.fixed.total)} · {expenseSplit.fixed.percentage}%
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {expenseSplit.fixed.categories.map((c) => (
+                      <div key={c.categoryId} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
+                          <span className="text-[13px] text-[#1a2332]">{c.categoryName}</span>
+                        </div>
+                        <span className="text-[13px] font-tabular text-[#1a2332]">{formatCurrency(c.amount)}</span>
+                      </div>
+                    ))}
+                    {expenseSplit.fixed.categories.length === 0 && (
+                      <p className="text-[13px] text-[#6b7a8d]">No fixed expenses this period.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[13px] font-medium font-heading text-[#1a2332]">
+                      Variable / Discretionary
+                    </span>
+                    <span className="text-[13px] font-semibold font-tabular text-[#00b89c]">
+                      {formatCurrency(expenseSplit.variable.total)} · {expenseSplit.variable.percentage}%
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {expenseSplit.variable.categories.map((c) => (
+                      <div key={c.categoryId} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
+                          <span className="text-[13px] text-[#1a2332]">{c.categoryName}</span>
+                        </div>
+                        <span className="text-[13px] font-tabular text-[#1a2332]">{formatCurrency(c.amount)}</span>
+                      </div>
+                    ))}
+                    {expenseSplit.variable.categories.length === 0 && (
+                      <p className="text-[13px] text-[#6b7a8d]">No variable expenses this period.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <p className="text-[12px] text-[#6b7a8d] mt-4 pt-4 border-t border-[#e8ecf0]">
+                {formatCurrency(expenseSplit.variable.total)} was truly discretionary this period — the rest was already committed.
+              </p>
+            </Card>
+          )}
 
           {(() => {
             const trendSummary = summarizeTrends(trends)
