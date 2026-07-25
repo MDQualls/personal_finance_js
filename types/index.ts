@@ -240,6 +240,12 @@ export type BudgetActualRow = {
   budgetType: BudgetType
 }
 
+export type CostFloor = {
+  recurringExpenses: number // cents, monthly equivalent
+  subscriptions: number // cents, monthly equivalent
+  totalMonthly: number // cents
+}
+
 // ─── Alert Types ──────────────────────────────────────────────────────────────
 
 export type BudgetAlert = {

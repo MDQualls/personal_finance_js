@@ -1,7 +1,8 @@
 import { prisma } from './prisma'
 import { format, formatPeriodKey } from './dates'
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns'
-import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot } from '@/types'
+import { monthlyEquivalent } from './money'
+import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, CostFloor } from '@/types'
 
 export async function getSpendingByCategory(from: Date, to: Date): Promise<SpendingByCategory[]> {
   const transactions = await prisma.transaction.findMany({
@@ -79,6 +80,28 @@ export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
     net: income - expenses,
     byCategory,
   }))
+}
+
+export async function getCostFloor(): Promise<CostFloor> {
+  const [recurringRules, subscriptions] = await Promise.all([
+    prisma.recurringRule.findMany({ where: { isActive: true, type: 'EXPENSE' } }),
+    prisma.subscription.findMany({ where: { isActive: true } }),
+  ])
+
+  const recurringExpenses = recurringRules.reduce(
+    (sum, rule) => sum + monthlyEquivalent(Math.abs(rule.amount), rule.frequency),
+    0
+  )
+  const subscriptionsTotal = subscriptions.reduce(
+    (sum, sub) => sum + monthlyEquivalent(sub.amount, sub.frequency),
+    0
+  )
+
+  return {
+    recurringExpenses,
+    subscriptions: subscriptionsTotal,
+    totalMonthly: recurringExpenses + subscriptionsTotal,
+  }
 }
 
 export async function getNetWorthHistory(months = 12): Promise<NetWorthSnapshot[]> {
