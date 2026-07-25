@@ -246,6 +246,16 @@ export type CostFloor = {
   totalMonthly: number // cents
 }
 
+export type TrendSummary = {
+  avgExpenses: number // cents, mean across the period
+  avgIncome: number // cents, mean across the period
+  avgSavingsRate: number // percent, mean of (net / income) per month
+  thisMonthExpenses: number // cents, most recent month in the period
+  vsAverageDelta: number // cents, thisMonthExpenses - avgExpenses (positive = above average)
+  bestMonth: { month: string; expenses: number } // lowest expenses
+  worstMonth: { month: string; expenses: number } // highest expenses
+}
+
 // ─── Alert Types ──────────────────────────────────────────────────────────────
 
 export type BudgetAlert = {

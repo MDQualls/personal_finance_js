@@ -9,6 +9,7 @@ import { NetWorthChart } from '@/components/charts/NetWorthChart'
 import { BudgetActualChart } from '@/components/charts/BudgetActualChart'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/money'
+import { summarizeTrends } from '@/lib/trendSummary'
 import Link from 'next/link'
 import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor } from '@/types'
 
@@ -156,6 +157,65 @@ export default function ReportsPage() {
               </div>
             </Card>
           </div>
+
+          {(() => {
+            const trendSummary = summarizeTrends(trends)
+            if (!trendSummary) return null
+            const isAboveAverage = trendSummary.vsAverageDelta > 0
+            return (
+              <Card>
+                <CardHeader title="Monthly Spending Summary" subtitle="Derived from the past 6 months" />
+                <div className="grid grid-cols-3 gap-5">
+                  <div>
+                    <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">Average Monthly Spend</p>
+                    <p className="text-[18px] font-semibold font-tabular text-[#1a2332] mt-1">
+                      {formatCurrency(trendSummary.avgExpenses)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">This Month vs. Average</p>
+                    <p
+                      className={`text-[18px] font-semibold font-tabular mt-1 ${
+                        isAboveAverage ? 'text-[#ef4444]' : 'text-[#22c55e]'
+                      }`}
+                    >
+                      {isAboveAverage ? '+' : '-'}
+                      {formatCurrency(Math.abs(trendSummary.vsAverageDelta))}
+                    </p>
+                    <p className="text-[12px] text-[#6b7a8d] mt-0.5">
+                      {isAboveAverage ? 'Above average' : 'Below average'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">Average Monthly Income</p>
+                    <p className="text-[18px] font-semibold font-tabular text-[#1a2332] mt-1">
+                      {formatCurrency(trendSummary.avgIncome)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">Average Savings Rate</p>
+                    <p className="text-[18px] font-semibold font-tabular text-[#1a2332] mt-1">
+                      {trendSummary.avgSavingsRate.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">Best Month</p>
+                    <p className="text-[18px] font-semibold font-tabular text-[#1a2332] mt-1">
+                      {formatCurrency(trendSummary.bestMonth.expenses)}
+                    </p>
+                    <p className="text-[12px] text-[#6b7a8d] mt-0.5">{trendSummary.bestMonth.month}</p>
+                  </div>
+                  <div>
+                    <p className="text-[13px] font-medium font-heading text-[#6b7a8d]">Worst Month</p>
+                    <p className="text-[18px] font-semibold font-tabular text-[#1a2332] mt-1">
+                      {formatCurrency(trendSummary.worstMonth.expenses)}
+                    </p>
+                    <p className="text-[12px] text-[#6b7a8d] mt-0.5">{trendSummary.worstMonth.month}</p>
+                  </div>
+                </div>
+              </Card>
+            )
+          })()}
 
           <Card>
             <div className="flex items-start justify-between mb-1">
