@@ -2,6 +2,7 @@ import { POST } from './route'
 import { prismaMock } from '@/lib/__mocks__/prisma'
 import { mockSession, noSession } from '@/lib/__mocks__/auth'
 import { mockRecurringRule } from '@/__tests__/factories/recurringRule'
+import { mockAccount } from '@/__tests__/factories/account'
 
 const RULE_ID = 'cuid_rule_1'
 const params = { params: { id: RULE_ID } }
@@ -30,10 +31,24 @@ describe('POST /api/recurring/[id]/post-now', () => {
     expect(res.status).toBe(404)
   })
 
+  it('returns 422 when the rule\'s account is Plaid-managed', async () => {
+    mockSession()
+    const account = mockAccount({ id: 'cuid_account_1', plaidManaged: true })
+    const rule = mockRecurringRule({ id: RULE_ID, accountId: account.id, account })
+    prismaMock.recurringRule.findUnique.mockResolvedValue(rule as never)
+
+    const req = new Request(`http://localhost/api/recurring/${RULE_ID}/post-now`, { method: 'POST' })
+    const res = await POST(req as never, params)
+
+    expect(res.status).toBe(422)
+    expect(prismaMock.$transaction).not.toHaveBeenCalled()
+  })
+
   it('posts the rule, creates a transaction, and updates account balance', async () => {
     mockSession()
     setupTransaction()
-    const rule = mockRecurringRule({ id: RULE_ID, amount: -24037 })
+    const account = mockAccount({ id: 'cuid_account_1', plaidManaged: false })
+    const rule = mockRecurringRule({ id: RULE_ID, accountId: account.id, amount: -24037, account })
     prismaMock.recurringRule.findUnique.mockResolvedValue(rule as never)
     prismaMock.transaction.create.mockResolvedValue({} as never)
     prismaMock.account.update.mockResolvedValue({} as never)

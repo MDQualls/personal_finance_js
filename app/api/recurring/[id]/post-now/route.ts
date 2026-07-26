@@ -10,8 +10,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!session) return apiError('Unauthorized', 401)
 
   try {
-    const rule = await prisma.recurringRule.findUnique({ where: { id: params.id } })
+    const rule = await prisma.recurringRule.findUnique({
+      where: { id: params.id },
+      include: { account: true },
+    })
     if (!rule) return apiError('Rule not found', 404)
+
+    if (rule.account.plaidManaged) {
+      return apiError(
+        'This account is managed by Plaid — posting manually would create a duplicate transaction. Plaid will sync the real transaction automatically.',
+        422
+      )
+    }
 
     await prisma.$transaction(async (tx) => {
       await tx.transaction.create({

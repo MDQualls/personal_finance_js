@@ -34,7 +34,7 @@ type Rule = {
   accountId: string
   categoryId: string
   monthlyEquivalent: number
-  account: { id: string; name: string }
+  account: { id: string; name: string; plaidManaged: boolean }
   category: { id: string; name: string; color: string }
 }
 
@@ -81,6 +81,7 @@ export function RecurringClient({ rules, accounts, categories, monthlyIncome, mo
   }
 
   async function handlePostNow(rule: Rule) {
+    if (rule.account.plaidManaged) return
     if (!confirm(`Post "${rule.name}" now? This will create a transaction and advance the next date.`)) return
     await fetch(`/api/recurring/${rule.id}/post-now`, { method: 'POST' })
     window.location.reload()
@@ -177,8 +178,17 @@ export function RecurringClient({ rules, accounts, categories, monthlyIncome, mo
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handlePostNow(rule)}
-                        className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#00b89c] hover:bg-[#e6f7f5] transition-colors"
-                        title="Post now"
+                        disabled={rule.account.plaidManaged}
+                        className={
+                          rule.account.plaidManaged
+                            ? 'h-7 w-7 flex items-center justify-center rounded-[6px] text-[#b0bac6] cursor-not-allowed'
+                            : 'h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#00b89c] hover:bg-[#e6f7f5] transition-colors'
+                        }
+                        title={
+                          rule.account.plaidManaged
+                            ? 'Managed by Plaid — transactions post automatically on sync'
+                            : 'Post now'
+                        }
                       >
                         <Play size={13} strokeWidth={1.5} />
                       </button>
