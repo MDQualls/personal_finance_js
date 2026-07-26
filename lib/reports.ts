@@ -10,6 +10,7 @@ import type {
   ExpenseSplit,
   ExpenseSplitCategory,
   CategoryComparison,
+  SavingsSummary,
 } from '@/types'
 
 export async function getSpendingByCategory(from: Date, to: Date): Promise<SpendingByCategory[]> {
@@ -20,6 +21,7 @@ export async function getSpendingByCategory(from: Date, to: Date): Promise<Spend
       needsReview: false,
       date: { gte: from, lte: to },
       amount: { lt: 0 },
+      category: { isSavings: false },
     },
     include: { category: true },
   })
@@ -92,6 +94,43 @@ export async function getSpendingComparison(anchor: Date): Promise<CategoryCompa
   return results.sort((a, b) => b.currentAmount - a.currentAmount)
 }
 
+// Money moved into isSavings categories (e.g. Savings & Investments) — tracked separately from
+// getSpendingByCategory/getSpendingComparison since it isn't spending, it's still the user's money.
+export async function getSavingsSummary(anchor: Date): Promise<SavingsSummary> {
+  const currentStart = startOfMonth(anchor)
+  const currentEnd = endOfMonth(anchor)
+  const priorMonth = subMonths(anchor, 1)
+  const priorStart = startOfMonth(priorMonth)
+  const priorEnd = endOfMonth(priorMonth)
+
+  const sumSavings = async (from: Date, to: Date) => {
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        isTransfer: false,
+        needsReview: false,
+        date: { gte: from, lte: to },
+        amount: { lt: 0 },
+        category: { isSavings: true },
+      },
+      select: { amount: true },
+    })
+    return transactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0)
+  }
+
+  const [currentAmount, priorAmount] = await Promise.all([
+    sumSavings(currentStart, currentEnd),
+    sumSavings(priorStart, priorEnd),
+  ])
+
+  return {
+    currentAmount,
+    priorAmount,
+    delta: currentAmount - priorAmount,
+    percentChange: priorAmount > 0 ? Math.round(((currentAmount - priorAmount) / priorAmount) * 100) : null,
+  }
+}
+
 export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
   const now = new Date()
   const start = startOfMonth(subMonths(now, months - 1))
@@ -114,7 +153,7 @@ export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
     if (!entry) continue
     if (tx.amount > 0) {
       entry.income += tx.amount
-    } else {
+    } else if (!tx.category.isSavings) {
       const abs = Math.abs(tx.amount)
       entry.expenses += abs
       entry.byCategory[tx.category.name] = (entry.byCategory[tx.category.name] ?? 0) + abs
@@ -139,6 +178,7 @@ export async function getExpenseSplit(from: Date, to: Date): Promise<ExpenseSpli
         needsReview: false,
         date: { gte: from, lte: to },
         amount: { lt: 0 },
+        category: { isSavings: false },
       },
       include: { category: true },
     }),

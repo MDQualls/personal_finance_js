@@ -4,49 +4,50 @@ const prisma = new PrismaClient()
 
 const SYSTEM_CATEGORIES = [
   // Income
-  { name: 'Income', color: '#22c55e', icon: 'trending-up', isIncome: true, isSystem: true },
+  { name: 'Income', color: '#22c55e', icon: 'trending-up', isIncome: true, isSystem: true, isSavings: false },
 
   // Housing
-  { name: 'Housing', color: '#6366f1', icon: 'home', isIncome: false, isSystem: true },
+  { name: 'Housing', color: '#6366f1', icon: 'home', isIncome: false, isSystem: true, isSavings: false },
 
   // Food
-  { name: 'Food & Dining', color: '#f59e0b', icon: 'utensils', isIncome: false, isSystem: true },
+  { name: 'Food & Dining', color: '#f59e0b', icon: 'utensils', isIncome: false, isSystem: true, isSavings: false },
 
   // Transport
-  { name: 'Transportation', color: '#3b82f6', icon: 'car', isIncome: false, isSystem: true },
+  { name: 'Transportation', color: '#3b82f6', icon: 'car', isIncome: false, isSystem: true, isSavings: false },
 
   // Health
-  { name: 'Health & Medical', color: '#ef4444', icon: 'heart', isIncome: false, isSystem: true },
+  { name: 'Health & Medical', color: '#ef4444', icon: 'heart', isIncome: false, isSystem: true, isSavings: false },
 
   // Entertainment
-  { name: 'Entertainment', color: '#8b5cf6', icon: 'film', isIncome: false, isSystem: true },
+  { name: 'Entertainment', color: '#8b5cf6', icon: 'film', isIncome: false, isSystem: true, isSavings: false },
 
   // Shopping
-  { name: 'Shopping', color: '#ec4899', icon: 'shopping-bag', isIncome: false, isSystem: true },
+  { name: 'Shopping', color: '#ec4899', icon: 'shopping-bag', isIncome: false, isSystem: true, isSavings: false },
 
   // Utilities
-  { name: 'Utilities', color: '#14b8a6', icon: 'zap', isIncome: false, isSystem: true },
+  { name: 'Utilities', color: '#14b8a6', icon: 'zap', isIncome: false, isSystem: true, isSavings: false },
 
   // Subscriptions
-  { name: 'Subscriptions', color: '#00b89c', icon: 'repeat', isIncome: false, isSystem: true },
+  { name: 'Subscriptions', color: '#00b89c', icon: 'repeat', isIncome: false, isSystem: true, isSavings: false },
 
   // Education
-  { name: 'Education', color: '#f97316', icon: 'book', isIncome: false, isSystem: true },
+  { name: 'Education', color: '#f97316', icon: 'book', isIncome: false, isSystem: true, isSavings: false },
 
   // Travel
-  { name: 'Travel', color: '#06b6d4', icon: 'plane', isIncome: false, isSystem: true },
+  { name: 'Travel', color: '#06b6d4', icon: 'plane', isIncome: false, isSystem: true, isSavings: false },
 
   // Personal Care
-  { name: 'Personal Care', color: '#a855f7', icon: 'smile', isIncome: false, isSystem: true },
+  { name: 'Personal Care', color: '#a855f7', icon: 'smile', isIncome: false, isSystem: true, isSavings: false },
 
-  // Savings & Investments
-  { name: 'Savings & Investments', color: '#10b981', icon: 'piggy-bank', isIncome: false, isSystem: true },
+  // Savings & Investments — money moved to savings/brokerage/retirement accounts, not spent;
+  // excluded from expense reports and tracked separately (see lib/reports.ts getSavingsSummary)
+  { name: 'Savings & Investments', color: '#10b981', icon: 'piggy-bank', isIncome: false, isSystem: true, isSavings: true },
 
   // Transfers
-  { name: 'Transfers', color: '#64748b', icon: 'arrow-right-left', isIncome: false, isSystem: true },
+  { name: 'Transfers', color: '#64748b', icon: 'arrow-right-left', isIncome: false, isSystem: true, isSavings: false },
 
   // Uncategorized
-  { name: 'Uncategorized', color: '#9ca3af', icon: 'help-circle', isIncome: false, isSystem: true },
+  { name: 'Uncategorized', color: '#9ca3af', icon: 'help-circle', isIncome: false, isSystem: true, isSavings: false },
 ]
 
 const SUBCATEGORIES: Record<string, { name: string; color: string; icon: string; isIncome: boolean }[]> = {
@@ -92,6 +93,7 @@ async function main() {
         icon: cat.icon,
         isIncome: cat.isIncome,
         isSystem: cat.isSystem,
+        isSavings: cat.isSavings,
         isActive: true,
       },
     })

@@ -13,6 +13,7 @@ export function mockCategory(overrides: Partial<Category> = {}): Category {
     isIncome: false,
     isSystem: false,
     isActive: true,
+    isSavings: false,
     ...overrides,
   }
 }

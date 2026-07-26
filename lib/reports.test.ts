@@ -1,4 +1,4 @@
-import { getCostFloor, getExpenseSplit, getSpendingComparison } from './reports'
+import { getCostFloor, getExpenseSplit, getSpendingComparison, getSpendingByCategory, getMonthlyTrends, getSavingsSummary } from './reports'
 import { prismaMock } from './__mocks__/prisma'
 import { mockRecurringRule } from '@/__tests__/factories/recurringRule'
 import { mockSubscription } from '@/__tests__/factories/subscription'
@@ -11,6 +11,33 @@ const TO = new Date('2026-07-31T23:59:59Z')
 const txWithCategory = (categoryId: string, amount: number, categoryOverrides = {}) => ({
   ...mockTransaction({ categoryId, amount }),
   category: mockCategory({ id: categoryId, name: `Category ${categoryId}`, color: '#000000', ...categoryOverrides }),
+})
+
+describe('getSpendingByCategory', () => {
+  it('excludes isSavings categories from the query', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([])
+
+    await getSpendingByCategory(FROM, TO)
+
+    expect(prismaMock.transaction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ category: { isSavings: false } }),
+      })
+    )
+  })
+
+  it('aggregates non-savings expense transactions by category', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([
+      txWithCategory('cuid_category_groceries', -5000, { name: 'Groceries' }),
+      txWithCategory('cuid_category_groceries', -3000, { name: 'Groceries' }),
+    ] as never)
+
+    const result = await getSpendingByCategory(FROM, TO)
+
+    expect(result).toEqual([
+      { categoryId: 'cuid_category_groceries', categoryName: 'Groceries', color: '#000000', amount: 8000, percentage: 100 },
+    ])
+  })
 })
 
 describe('getCostFloor', () => {
@@ -174,6 +201,7 @@ describe('getExpenseSplit', () => {
           needsReview: false,
           date: { gte: FROM, lte: TO },
           amount: { lt: 0 },
+          category: { isSavings: false },
         },
       })
     )
@@ -279,5 +307,90 @@ describe('getSpendingComparison', () => {
     const result = await getSpendingComparison(ANCHOR)
 
     expect(result.map((r) => r.categoryName)).toEqual(['Big', 'Small'])
+  })
+})
+
+describe('getMonthlyTrends', () => {
+  it('excludes isSavings category outflows from the expenses total', async () => {
+    const today = new Date()
+    prismaMock.transaction.findMany.mockResolvedValue([
+      { ...txWithCategory('cuid_category_savings', -200000, { name: 'Savings & Investments', isSavings: true }), date: today },
+      { ...txWithCategory('cuid_category_dining', -5000, { name: 'Dining' }), date: today },
+    ] as never)
+
+    const result = await getMonthlyTrends(1)
+
+    expect(result[0].expenses).toBe(5000)
+    expect(result[0].net).toBe(-5000)
+  })
+
+  it('still counts income normally alongside excluded savings outflows', async () => {
+    const today = new Date()
+    prismaMock.transaction.findMany.mockResolvedValue([
+      { ...mockTransaction({ amount: 300000, date: today }), category: mockCategory({ isIncome: true }) },
+      { ...txWithCategory('cuid_category_savings', -200000, { name: 'Savings & Investments', isSavings: true }), date: today },
+    ] as never)
+
+    const result = await getMonthlyTrends(1)
+
+    expect(result[0].income).toBe(300000)
+    expect(result[0].expenses).toBe(0)
+    expect(result[0].net).toBe(300000)
+  })
+})
+
+describe('getSavingsSummary', () => {
+  const ANCHOR = new Date('2026-07-15T00:00:00Z')
+
+  it('sums isSavings-category outflows for the current and prior calendar month', async () => {
+    prismaMock.transaction.findMany
+      .mockResolvedValueOnce([{ amount: -200000 }, { amount: -50000 }] as never)
+      .mockResolvedValueOnce([{ amount: -100000 }] as never)
+
+    const result = await getSavingsSummary(ANCHOR)
+
+    expect(result).toEqual({
+      currentAmount: 250000,
+      priorAmount: 100000,
+      delta: 150000,
+      percentChange: 150,
+    })
+  })
+
+  it('sets percentChange to null when there was no savings in the prior period', async () => {
+    prismaMock.transaction.findMany
+      .mockResolvedValueOnce([{ amount: -50000 }] as never)
+      .mockResolvedValueOnce([])
+
+    const result = await getSavingsSummary(ANCHOR)
+
+    expect(result.priorAmount).toBe(0)
+    expect(result.percentChange).toBeNull()
+  })
+
+  it('queries only isSavings categories, non-transfer, approved, expense-direction transactions', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([])
+
+    await getSavingsSummary(ANCHOR)
+
+    expect(prismaMock.transaction.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          isTransfer: false,
+          needsReview: false,
+          amount: { lt: 0 },
+          category: { isSavings: true },
+        }),
+      })
+    )
+  })
+
+  it('returns zeros when there is no savings activity in either period', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([])
+
+    const result = await getSavingsSummary(ANCHOR)
+
+    expect(result).toEqual({ currentAmount: 0, priorAmount: 0, delta: 0, percentChange: null })
   })
 })

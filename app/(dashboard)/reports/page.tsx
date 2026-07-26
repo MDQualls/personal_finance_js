@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/money'
 import { summarizeTrends } from '@/lib/trendSummary'
 import Link from 'next/link'
-import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor, ExpenseSplit, CategoryComparison } from '@/types'
+import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor, ExpenseSplit, CategoryComparison, SavingsSummary } from '@/types'
 
 export default function ReportsPage() {
   const [spending, setSpending] = useState<SpendingByCategory[]>([])
@@ -21,6 +21,7 @@ export default function ReportsPage() {
   const [costFloor, setCostFloor] = useState<CostFloor | null>(null)
   const [expenseSplit, setExpenseSplit] = useState<ExpenseSplit | null>(null)
   const [comparison, setComparison] = useState<CategoryComparison[]>([])
+  const [savings, setSavings] = useState<SavingsSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
   const now = new Date()
@@ -37,7 +38,8 @@ export default function ReportsPage() {
       fetch('/api/reports/cost-floor').then((r) => r.json()),
       fetch(`/api/reports/expense-split?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
       fetch(`/api/reports/spending?from=${from}T00:00:00Z&compare=true`).then((r) => r.json()),
-    ]).then(([s, t, n, b, c, e, cmp]) => {
+      fetch(`/api/reports/savings?from=${from}T00:00:00Z`).then((r) => r.json()),
+    ]).then(([s, t, n, b, c, e, cmp, sv]) => {
       setSpending(s.data ?? [])
       setTrends(t.data ?? [])
       setNetWorth(n.data ?? [])
@@ -45,6 +47,7 @@ export default function ReportsPage() {
       setCostFloor(c.data ?? null)
       setExpenseSplit(e.data ?? null)
       setComparison(cmp.data ?? [])
+      setSavings(sv.data ?? null)
       setLoading(false)
     })
   }, [from, to])
@@ -185,6 +188,33 @@ export default function ReportsPage() {
                   <p className="text-[13px] text-[#6b7a8d]">No spending data for this period.</p>
                 )}
               </div>
+
+              {savings && (savings.currentAmount > 0 || savings.priorAmount > 0) && (
+                <div className="mt-4 pt-4 border-t border-[#e8ecf0] flex items-center justify-between">
+                  <div>
+                    <p className="text-[13px] font-medium font-heading text-[#1a2332]">Saved This Month</p>
+                    <p className="text-[12px] text-[#6b7a8d]">Moved to Savings & Investments — not counted as spending</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-4">
+                    <p className="text-[13px] font-semibold font-tabular text-[#1a2332]">
+                      {formatCurrency(savings.currentAmount)}
+                    </p>
+                    {savings.percentChange === null ? (
+                      <p className="text-[11px] font-tabular text-[#6b7a8d] mt-0.5">New this month</p>
+                    ) : (
+                      <p
+                        className={`text-[11px] font-tabular mt-0.5 ${
+                          savings.delta > 0 ? 'text-[#22c55e]' : savings.delta < 0 ? 'text-[#ef4444]' : 'text-[#6b7a8d]'
+                        }`}
+                      >
+                        {savings.delta >= 0 ? '+' : '-'}
+                        {formatCurrency(Math.abs(savings.delta))} ({savings.percentChange >= 0 ? '+' : ''}
+                        {savings.percentChange}%) vs last month
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 

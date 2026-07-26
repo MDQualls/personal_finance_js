@@ -78,6 +78,7 @@ model Category {
   isIncome Boolean @default(false)
   isSystem Boolean @default(false)
   isActive Boolean @default(true)
+  isSavings Boolean @default(false) // money moved to savings/investments — excluded from expense reports, tracked separately
 
   parent       Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children     Category[]     @relation("CategoryHierarchy")

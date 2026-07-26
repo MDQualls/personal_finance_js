@@ -256,6 +256,13 @@ export type CategoryComparison = {
   percentChange: number | null // null when priorAmount is 0 (undefined/"new" — can't express as a percent)
 }
 
+export type SavingsSummary = {
+  currentAmount: number // cents moved into isSavings categories this calendar month
+  priorAmount: number // cents moved into isSavings categories the prior calendar month
+  delta: number // cents, currentAmount - priorAmount
+  percentChange: number | null // null when priorAmount is 0 (undefined/"new" — can't express as a percent)
+}
+
 export type ExpenseSplitCategory = {
   categoryId: string
   categoryName: string
