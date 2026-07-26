@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { computeNetWorth } from '@/lib/reports'
 import { AccountsClient } from './AccountsClient'
 
 export default async function AccountsPage() {
@@ -12,13 +13,7 @@ export default async function AccountsPage() {
     orderBy: [{ type: 'asc' }, { name: 'asc' }],
   })
 
-  const netWorth = accounts
-    .filter((a) => a.isActive)
-    .reduce((sum, a) => {
-      if (['CHECKING', 'SAVINGS', 'INVESTMENT', 'ASSET'].includes(a.type)) return sum + a.balance
-      if (['CREDIT_CARD', 'LOAN', 'LIABILITY'].includes(a.type)) return sum - Math.abs(a.balance)
-      return sum
-    }, 0)
+  const { netWorth } = computeNetWorth(accounts.filter((a) => a.isActive))
 
   return <AccountsClient accounts={accounts} netWorth={netWorth} />
 }

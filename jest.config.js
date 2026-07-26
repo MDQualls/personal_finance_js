@@ -1,3 +1,9 @@
+// Pin the test process to UTC so date-fns's local-timezone functions (startOfMonth,
+// format, etc.) behave the same on every machine/CI runner as they do in the
+// production container (which also runs TZ=UTC — see docker-compose.yml). Without
+// this, report period-boundary tests are flaky depending on the host's local timezone.
+process.env.TZ = 'UTC'
+
 const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({ dir: './' })

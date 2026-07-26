@@ -229,6 +229,31 @@ describe('DELETE /api/categories/[id]', () => {
     expect(res.status).toBe(409)
   })
 
+  it('returns 409 when the category has active subcategories', async () => {
+    mockSession()
+    prismaMock.category.findUnique.mockResolvedValue(mockCategory({ isSystem: false }))
+    prismaMock.transaction.count.mockResolvedValue(0)
+    prismaMock.category.count.mockResolvedValue(2)
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', { method: 'DELETE' })
+    const res = await DELETE(req as never, { params: { id: 'cuid_cat_1' } })
+    expect(res.status).toBe(409)
+    expect(prismaMock.category.update).not.toHaveBeenCalled()
+  })
+
+  it('archives successfully when all subcategories are already archived', async () => {
+    mockSession()
+    const cat = mockCategory({ isSystem: false })
+    prismaMock.category.findUnique.mockResolvedValue(cat)
+    prismaMock.transaction.count.mockResolvedValue(0)
+    prismaMock.category.count.mockResolvedValue(0)
+    prismaMock.category.update.mockResolvedValue({ ...cat, isActive: false })
+
+    const req = new Request('http://localhost/api/categories/cuid_cat_1', { method: 'DELETE' })
+    const res = await DELETE(req as never, { params: { id: cat.id } })
+    expect(res.status).toBe(200)
+  })
+
   it('returns 404 when category does not exist', async () => {
     mockSession()
     prismaMock.category.findUnique.mockResolvedValue(null)

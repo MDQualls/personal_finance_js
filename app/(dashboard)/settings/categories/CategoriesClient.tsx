@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { Plus, Settings, Pencil } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -26,53 +29,70 @@ interface CategoriesClientProps {
   categories: Category[]
 }
 
+const categoryFormSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(80),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color'),
+  parentId: z.string(),
+  type: z.enum(['expense', 'income']),
+})
+
+type CategoryFormValues = z.infer<typeof categoryFormSchema>
+
 export function CategoriesClient({ categories }: CategoriesClientProps) {
   const router = useRouter()
 
-  // Add state
   const [showAdd, setShowAdd] = useState(false)
-  const [name, setName] = useState('')
-  const [color, setColor] = useState('#6b7a8d')
-  const [parentId, setParentId] = useState('')
-  const [isIncome, setIsIncome] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [addError, setAddError] = useState('')
 
-  // Edit state
   const [editing, setEditing] = useState<Category | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editColor, setEditColor] = useState('#6b7a8d')
-  const [editParentId, setEditParentId] = useState('')
-  const [editIsIncome, setEditIsIncome] = useState(false)
-  const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
+
+  const addForm = useForm<CategoryFormValues>({
+    resolver: zodResolver(categoryFormSchema),
+    defaultValues: { name: '', color: '#6b7a8d', parentId: '', type: 'expense' },
+  })
+
+  const editForm = useForm<CategoryFormValues>({
+    resolver: zodResolver(categoryFormSchema),
+    defaultValues: { name: '', color: '#6b7a8d', parentId: '', type: 'expense' },
+  })
 
   const parentOptions = categories.map((c) => ({ value: c.id, label: c.name }))
 
-  function openEdit(cat: Category) {
-    setEditing(cat)
-    setEditName(cat.name)
-    setEditColor(cat.color)
-    setEditParentId(cat.parentId ?? '')
-    setEditIsIncome(cat.isIncome)
-    setEditError('')
+  function openAdd() {
+    setAddError('')
+    addForm.reset({ name: '', color: '#6b7a8d', parentId: '', type: 'expense' })
+    setShowAdd(true)
   }
 
-  async function saveEdit() {
+  function closeAdd() {
+    setShowAdd(false)
+  }
+
+  function openEdit(cat: Category) {
+    setEditError('')
+    editForm.reset({
+      name: cat.name,
+      color: cat.color,
+      parentId: cat.parentId ?? '',
+      type: cat.isIncome ? 'income' : 'expense',
+    })
+    setEditing(cat)
+  }
+
+  async function saveEdit(values: CategoryFormValues) {
     if (!editing) return
-    setEditSaving(true)
     setEditError('')
     const res = await fetch(`/api/categories/${editing.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: editName,
-        color: editColor,
-        isIncome: editIsIncome,
-        parentId: editParentId === '' ? null : editParentId,
+        name: values.name,
+        color: values.color,
+        isIncome: values.type === 'income',
+        parentId: values.parentId === '' ? null : values.parentId,
       }),
     })
-    setEditSaving(false)
     if (!res.ok) {
       const body = await res.json()
       setEditError(typeof body.error === 'string' ? body.error : 'Failed to save')
@@ -82,20 +102,18 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
     router.refresh()
   }
 
-  async function save() {
-    setSaving(true)
+  async function save(values: CategoryFormValues) {
     setAddError('')
     const res = await fetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name,
-        color,
-        isIncome,
-        ...(parentId ? { parentId } : {}),
+        name: values.name,
+        color: values.color,
+        isIncome: values.type === 'income',
+        ...(values.parentId ? { parentId: values.parentId } : {}),
       }),
     })
-    setSaving(false)
     if (!res.ok) {
       const body = await res.json()
       setAddError(typeof body.error === 'string' ? body.error : 'Failed to save')
@@ -108,13 +126,7 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
   return (
     <div className="max-w-2xl space-y-4">
       <div className="flex justify-end">
-        <Button onClick={() => {
-          setName('')
-          setColor('#6b7a8d')
-          setParentId('')
-          setIsIncome(false)
-          setShowAdd(true)
-        }}>
+        <Button onClick={openAdd}>
           <Plus size={16} strokeWidth={1.5} />
           New Category
         </Button>
@@ -173,24 +185,24 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
       )}
 
       {/* Edit modal */}
-      <Modal open={!!editing} onClose={() => setEditing(null)} title={`Edit Category`}>
-        <div className="space-y-4">
+      <Modal open={!!editing} onClose={() => setEditing(null)} title="Edit Category">
+        <form onSubmit={editForm.handleSubmit(saveEdit)} className="space-y-4">
           <Input
             label="Name"
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
+            {...editForm.register('name')}
+            error={editForm.formState.errors.name?.message}
             placeholder="Category name"
           />
           <div>
-            <label className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">Color</label>
+            <label htmlFor="edit-category-color" className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">Color</label>
             <div className="flex items-center gap-3">
               <input
+                id="edit-category-color"
                 type="color"
-                value={editColor}
-                onChange={(e) => setEditColor(e.target.value)}
+                {...editForm.register('color')}
                 className="h-10 w-14 cursor-pointer rounded-[8px] border border-[#e8ecf0] p-1"
               />
-              <span className="text-[13px] text-[#6b7a8d] font-mono">{editColor}</span>
+              <span className="text-[13px] text-[#6b7a8d] font-mono">{editForm.watch('color')}</span>
             </div>
           </div>
           <div>
@@ -202,8 +214,7 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
                   .filter((c) => c.id !== editing?.id)
                   .map((c) => ({ value: c.id, label: c.name })),
               ]}
-              value={editParentId}
-              onChange={(e) => setEditParentId(e.target.value)}
+              {...editForm.register('parentId')}
               disabled={(editing?.children?.length ?? 0) > 0}
             />
             {(editing?.children?.length ?? 0) > 0 && (
@@ -219,31 +230,34 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
                 { value: 'expense', label: 'Expense' },
                 { value: 'income', label: 'Income' },
               ]}
-              value={editIsIncome ? 'income' : 'expense'}
-              onChange={(e) => setEditIsIncome(e.target.value === 'income')}
+              {...editForm.register('type')}
             />
           </div>
           {editError && <p className="text-[13px] text-[#ef4444]">{editError}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button loading={editSaving} onClick={saveEdit}>Save Changes</Button>
+            <Button type="button" variant="secondary" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button type="submit" loading={editForm.formState.isSubmitting}>Save Changes</Button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       {/* Add modal */}
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setName(''); setColor('#6b7a8d'); setParentId(''); setIsIncome(false); setAddError('') }} title="New Category">
-        <div className="space-y-4">
-          <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Groceries" />
+      <Modal open={showAdd} onClose={closeAdd} title="New Category">
+        <form onSubmit={addForm.handleSubmit(save)} className="space-y-4">
+          <Input
+            label="Name"
+            {...addForm.register('name')}
+            error={addForm.formState.errors.name?.message}
+            placeholder="e.g. Groceries"
+          />
           <Select
             label="Parent Category (optional)"
             options={[{ value: '', label: 'None (top-level)' }, ...parentOptions]}
-            value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
+            {...addForm.register('parentId')}
           />
           <div>
-            <label className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">Color</label>
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-10 w-14 cursor-pointer rounded-[8px] border border-[#e8ecf0] p-1" />
+            <label htmlFor="new-category-color" className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">Color</label>
+            <input id="new-category-color" type="color" {...addForm.register('color')} className="h-10 w-14 cursor-pointer rounded-[8px] border border-[#e8ecf0] p-1" />
           </div>
           <div>
             <Select
@@ -252,15 +266,14 @@ export function CategoriesClient({ categories }: CategoriesClientProps) {
                 { value: 'expense', label: 'Expense' },
                 { value: 'income', label: 'Income' },
               ]}
-              value={isIncome ? 'income' : 'expense'}
-              onChange={(e) => setIsIncome(e.target.value === 'income')}
+              {...addForm.register('type')}
             />
           </div>
           {addError && <p className="text-[13px] text-[#ef4444]">{addError}</p>}
           <div className="flex justify-end pt-2">
-            <Button loading={saving} onClick={save}>Create Category</Button>
+            <Button type="submit" loading={addForm.formState.isSubmitting}>Create Category</Button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   )

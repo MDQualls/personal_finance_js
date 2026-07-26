@@ -45,6 +45,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
           </h3>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:bg-[#f4f6f9] transition-colors"
           >
             <X size={16} strokeWidth={1.5} />

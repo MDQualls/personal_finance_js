@@ -153,6 +153,7 @@ export function TransactionRow({
             <select
               value={selectedCategoryId}
               onChange={(e) => setSelectedCategoryId(e.target.value)}
+              aria-label="Category"
               className="h-8 px-2 rounded-[6px] border border-[#e8ecf0] text-[12px] text-[#1a2332] bg-white outline-none focus:border-[#00b89c] cursor-pointer"
             >
               {reviewCategories!.map((c) => (
@@ -174,6 +175,7 @@ export function TransactionRow({
             </button>
             <button
               onClick={() => setExpanded((v) => !v)}
+              aria-label={expanded ? 'Hide details' : 'Show details'}
               className="h-8 w-8 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#1a2332] hover:bg-[#f4f6f9] transition-colors"
               title={expanded ? 'Hide details' : 'Show details'}
             >
@@ -208,6 +210,7 @@ export function TransactionRow({
               {onEdit && (
                 <button
                   onClick={onEdit}
+                  aria-label="Edit"
                   className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#1a2332] hover:bg-[#f4f6f9] transition-colors"
                   title="Edit"
                 >
@@ -218,6 +221,7 @@ export function TransactionRow({
                 <button
                   onClick={handleDelete}
                   disabled={deleting}
+                  aria-label="Delete"
                   className="h-7 w-7 flex items-center justify-center rounded-[6px] text-[#6b7a8d] hover:text-[#ef4444] hover:bg-[#fef2f2] transition-all"
                   title="Delete"
                 >

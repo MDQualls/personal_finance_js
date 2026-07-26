@@ -56,4 +56,10 @@ describe('encryptToken / decryptToken', () => {
 
     expect(() => decryptToken(encrypted)).toThrow('ENCRYPTION_KEY is not set')
   })
+
+  it('throws a clear, actionable error when ENCRYPTION_KEY is the wrong length', () => {
+    process.env.ENCRYPTION_KEY = Buffer.alloc(16, 7).toString('base64') // wrong size for aes-256-gcm
+
+    expect(() => encryptToken('access-token')).toThrow(/must decode \(base64\) to exactly 32 bytes/)
+  })
 })

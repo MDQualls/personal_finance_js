@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { formatCurrency } from '@/lib/money'
 import { formatDisplay, startOfPeriod, endOfPeriod, daysUntil } from '@/lib/dates'
 import { getBudgetAlerts } from '@/lib/alerts'
+import { getMonthlyTrends, getBudgetSpent, computeNetWorth } from '@/lib/reports'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { BudgetProgress } from '@/components/ui/BudgetProgress'
@@ -18,7 +19,6 @@ export default async function DashboardPage() {
 
   const now = new Date()
   const monthStart = startOfPeriod(now, 'MONTHLY')
-  const monthEnd = endOfPeriod(now, 'MONTHLY')
 
   const sevenDaysOut = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
@@ -46,36 +46,22 @@ export default async function DashboardPage() {
     }),
   ])
 
-  const netWorth = accounts.reduce((sum, a) => {
-    if (['CHECKING', 'SAVINGS', 'INVESTMENT', 'ASSET'].includes(a.type)) return sum + a.balance
-    return sum - Math.abs(a.balance)
-  }, 0)
+  const { netWorth } = computeNetWorth(accounts)
 
   const enrichedBudgets = await Promise.all(
     budgets.map(async (budget) => {
       const start = startOfPeriod(now, budget.period as BudgetPeriod)
       const end = endOfPeriod(now, budget.period as BudgetPeriod)
-      const result = await prisma.transaction.aggregate({
-        where: { categoryId: budget.categoryId, deletedAt: null, date: { gte: start, lte: end }, amount: { lt: 0 } },
-        _sum: { amount: true },
-      })
-      return { ...budget, spent: Math.abs(result._sum.amount ?? 0) }
+      const spent = await getBudgetSpent(budget.categoryId, start, end)
+      return { ...budget, spent }
     })
   )
 
   const budgetAlerts = getBudgetAlerts(enrichedBudgets)
 
-  const incomeThisMonth = await prisma.transaction.aggregate({
-    where: { deletedAt: null, date: { gte: monthStart, lte: monthEnd }, amount: { gt: 0 } },
-    _sum: { amount: true },
-  })
-  const expensesThisMonth = await prisma.transaction.aggregate({
-    where: { deletedAt: null, date: { gte: monthStart, lte: monthEnd }, amount: { lt: 0 } },
-    _sum: { amount: true },
-  })
-
-  const totalIncome = incomeThisMonth._sum.amount ?? 0
-  const totalExpenses = Math.abs(expensesThisMonth._sum.amount ?? 0)
+  const [currentMonthTrend] = await getMonthlyTrends(1)
+  const totalIncome = currentMonthTrend?.income ?? 0
+  const totalExpenses = currentMonthTrend?.expenses ?? 0
 
   const upcomingBills = [
     ...subscriptions

@@ -4,14 +4,14 @@ import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
+import { SYSTEM_TRANSFERS_CATEGORY_ID } from '@/lib/constants'
 import { differenceInCalendarDays } from 'date-fns'
 
 const TRANSFER_WINDOW_DAYS = 5
-const SYSTEM_TRANSFERS_CATEGORY_ID = 'system_transfers'
 
 const CreateTransferSchema = z.object({
-  fromTransactionId: z.string().min(1),
-  toTransactionId: z.string().min(1),
+  fromTransactionId: z.string().min(1).max(100),
+  toTransactionId: z.string().min(1).max(100),
   note: z.string().max(500).optional(),
 })
 

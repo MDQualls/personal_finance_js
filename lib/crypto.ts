@@ -5,12 +5,24 @@ const ALGORITHM = 'aes-256-gcm'
 // Read lazily (not at module scope) so importing this file never crashes
 // before ENCRYPTION_KEY is configured — jest's coverage collector loads
 // every lib/**/*.ts file, and unrelated Plaid work happens before the key exists.
+const REQUIRED_KEY_BYTES = 32 // aes-256-gcm
+
 function getKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY
   if (!key) {
     throw new Error('ENCRYPTION_KEY is not set')
   }
-  return Buffer.from(key, 'base64')
+  const decoded = Buffer.from(key, 'base64')
+  if (decoded.length !== REQUIRED_KEY_BYTES) {
+    // Without this check, a mis-sized key only surfaces as Node's generic
+    // "Invalid key length" thrown deep inside crypto.createCipheriv — this gives
+    // an actionable message pointing at the actual env var and fix.
+    throw new Error(
+      `ENCRYPTION_KEY must decode (base64) to exactly ${REQUIRED_KEY_BYTES} bytes for aes-256-gcm, ` +
+        `got ${decoded.length}. Generate one with: openssl rand -base64 32`
+    )
+  }
+  return decoded
 }
 
 export function encryptToken(plaintext: string): string {

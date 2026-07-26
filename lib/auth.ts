@@ -1,6 +1,7 @@
 import { type NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
+import { checkAuthRateLimit, getClientIpFromHeaderRecord } from '@/lib/rateLimit'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -10,8 +11,13 @@ export const authOptions: NextAuthOptions = {
         username: { label: 'Username', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.username || !credentials?.password) return null
+
+        // 10 attempts / 15 min per IP — checked before touching the password hash so a
+        // locked-out caller can't keep spending bcrypt.compare CPU cycles either.
+        const ip = getClientIpFromHeaderRecord(req?.headers)
+        if (!checkAuthRateLimit(ip)) return null
 
         const expectedUsername = process.env.AUTH_USERNAME
         const passwordHashB64 = process.env.AUTH_PASSWORD_HASH_B64
@@ -42,7 +48,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string
+        session.user.id = token.id
       }
       return session
     },

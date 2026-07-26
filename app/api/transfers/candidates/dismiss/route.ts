@@ -6,8 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
 
 const DismissCandidateSchema = z.object({
-  fromTransactionId: z.string().min(1),
-  toTransactionId: z.string().min(1),
+  fromTransactionId: z.string().min(1).max(100),
+  toTransactionId: z.string().min(1).max(100),
 })
 
 export async function POST(req: NextRequest) {

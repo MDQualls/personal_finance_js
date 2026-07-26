@@ -3,13 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { apiSuccess, apiError } from '@/lib/api'
 import { getSpendingByCategory, getSpendingComparison } from '@/lib/reports'
-
-function csvField(value: string | number): string {
-  const str = String(value)
-  return str.includes(',') || str.includes('"') || str.includes('\n')
-    ? `"${str.replace(/"/g, '""')}"`
-    : str
-}
+import { csvField, escapeFormulaInjection } from '@/lib/transactionExport'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -37,7 +31,7 @@ export async function GET(req: NextRequest) {
       const rows = [
         ['Category', 'Amount', 'Percentage'],
         ...data.map((row) => [
-          csvField(row.categoryName),
+          csvField(escapeFormulaInjection(row.categoryName)),
           csvField((row.amount / 100).toFixed(2)),
           csvField(row.percentage),
         ]),

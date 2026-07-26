@@ -269,6 +269,39 @@ describe('serializeTransactionsToCsv', () => {
     expect(columns[5]).toBe('')
   })
 
+  it('prefixes a formula-injection-shaped description with a single quote', () => {
+    const tx = mockTx({ description: '=cmd|"/c calc"!A1' })
+    const csv = serializeTransactionsToCsv([tx])
+
+    expect(csv).toContain("'=cmd")
+  })
+
+  it.each(['=1+1', '+1+1', '-1+1', '@SUM(A1)'])(
+    'prefixes description starting with %s with a single quote',
+    (value) => {
+      const tx = mockTx({ description: value })
+      const csv = serializeTransactionsToCsv([tx])
+
+      expect(csv).toContain(`'${value}`)
+    }
+  )
+
+  it('does not alter a description that merely contains, but does not start with, a formula character', () => {
+    const tx = mockTx({ description: 'Total = $45.00' })
+    const csv = serializeTransactionsToCsv([tx])
+
+    expect(csv).toContain('Total = $45.00')
+    expect(csv).not.toContain("'Total")
+  })
+
+  it('does not prefix the amount column even for negative values', () => {
+    const tx = mockTx({ amount: -4500 })
+    const csv = serializeTransactionsToCsv([tx])
+    const lines = csv.split('\n')[1].split(',')
+
+    expect(lines[2]).toBe('-45.00')
+  })
+
   it('produces one row per transaction', () => {
     const txs = [mockTx({ id: 'tx1' }), mockTx({ id: 'tx2' }), mockTx({ id: 'tx3' })]
     const csv = serializeTransactionsToCsv(txs)

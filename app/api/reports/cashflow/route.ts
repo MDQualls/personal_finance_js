@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
 import { projectBalance } from '@/lib/projection'
+import { computeNetWorth } from '@/lib/reports'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
       prisma.subscription.findMany({ where: { isActive: true } }),
     ])
 
-    const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0)
+    const { netWorth: totalBalance } = computeNetWorth(accounts)
 
     const projection = projectBalance(
       totalBalance,

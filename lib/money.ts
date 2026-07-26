@@ -15,27 +15,6 @@ export function formatCurrency(cents: number, currency = 'USD'): string {
   }).format(cents / 100)
 }
 
-export function formatCurrencyTabular(cents: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(cents / 100)
-}
-
-export function isNegative(cents: number): boolean {
-  return cents < 0
-}
-
-export function absAmount(cents: number): number {
-  return Math.abs(cents)
-}
-
-export function sumCents(amounts: number[]): number {
-  return amounts.reduce((sum, n) => sum + n, 0)
-}
-
 export function annualEquivalent(cents: number, frequency: string): number {
   switch (frequency) {
     case 'WEEKLY':

@@ -8,13 +8,12 @@
 
 import { PrismaClient } from '@prisma/client'
 import { detectTransferCandidates } from '../lib/transferDetection'
+import { SYSTEM_TRANSFERS_CATEGORY_ID } from '../lib/constants'
 import type { Transaction } from '../types'
 
 const prisma = new PrismaClient()
 
 async function main() {
-  const SYSTEM_TRANSFERS_CATEGORY_ID = 'system_transfers'
-
   const rawTransactions = await prisma.transaction.findMany({
     where: {
       deletedAt: null,

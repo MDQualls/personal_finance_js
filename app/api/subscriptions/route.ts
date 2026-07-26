@@ -13,7 +13,7 @@ const CreateSubscriptionSchema = z.object({
   amount: z.number().int().positive(),
   frequency: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']),
   nextDueDate: z.string().datetime(),
-  categoryId: z.string().min(1),
+  categoryId: z.string().min(1).max(100),
   notes: z.string().max(500).optional(),
   alertDays: z.number().int().min(0).max(30).default(3),
 })
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     const advancePromises = subscriptions
       .filter((s) => s.isActive && s.nextDueDate < new Date())
       .map((s) => {
-        const advanced = advanceToNextOccurrence(s.nextDueDate, s.frequency as Frequency)
+        const advanced = advanceToNextOccurrence(s.nextDueDate, s.frequency)
         return prisma.subscription.update({
           where: { id: s.id },
           data: { nextDueDate: advanced },

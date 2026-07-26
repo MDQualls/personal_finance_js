@@ -86,6 +86,13 @@ model Category {
   budgets      Budget[]
   subscriptions Subscription[]
   recurringRules RecurringRule[]
+
+  // Covers same-name-under-same-subcategory-parent duplicates. Postgres treats
+  // NULL parentId as distinct per row, so this does NOT catch duplicate top-level
+  // (parentId: null) names — that's enforced separately by a partial unique index
+  // (CREATE UNIQUE INDEX ... WHERE "parentId" IS NULL) hand-added in the migration,
+  // since Prisma's schema DSL can't express a partial/filtered unique constraint.
+  @@unique([name, parentId])
 }
 
 model Transaction {
@@ -109,6 +116,11 @@ model Transaction {
   tags         Tag[]     @relation("TransactionTags")
   transferFrom Transfer? @relation("TransferFrom")
   transferTo   Transfer? @relation("TransferTo")
+
+  @@index([accountId])
+  @@index([categoryId])
+  @@index([date])
+  @@index([deletedAt, isTransfer, needsReview])
 }
 
 model Transfer {
@@ -178,6 +190,13 @@ model Budget {
   updatedAt  DateTime     @updatedAt
 
   category Category @relation(fields: [categoryId], references: [id])
+
+  // Prevents two simultaneous active budgets for the same category+period. Enforced
+  // as a partial unique index (WHERE "isActive" = true) hand-added in the migration
+  // so archiving a budget doesn't permanently block recreating one for the same
+  // category+period — Prisma's schema DSL can't express that filter, so this
+  // @@index just documents the query-shape/keeps the columns indexed for lookups.
+  @@index([categoryId, period])
 }
 
 model Subscription {
@@ -194,6 +213,8 @@ model Subscription {
   updatedAt   DateTime  @updatedAt
 
   category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([nextDueDate])
 }
 
 model RecurringRule {
@@ -214,6 +235,8 @@ model RecurringRule {
 
   account  Account  @relation(fields: [accountId], references: [id])
   category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([nextDate])
 }
 
 model Tag {

@@ -8,6 +8,7 @@ import { apiSuccess, apiError } from '@/lib/api'
 import { checkInsightsRateLimit, getClientIp } from '@/lib/rateLimit'
 import { startOfPeriod, endOfPeriod } from '@/lib/dates'
 import { monthlyEquivalent } from '@/lib/money'
+import { computeNetWorth } from '@/lib/reports'
 import { differenceInHours } from 'date-fns'
 
 const GenerateSchema = z.object({
@@ -62,19 +63,25 @@ export async function POST(req: NextRequest) {
       }),
     ])
 
-    // Aggregate category totals
-    const catMap = new Map<string, { name: string; amount: number }>()
+    // Aggregate category totals. Keyed by categoryId, not category.name — two
+    // categories can legitimately share a name (e.g. a subcategory under one
+    // parent and another under a different parent), which would otherwise
+    // silently merge their spending into one bucket.
+    const catMap = new Map<string, { categoryId: string; name: string; amount: number }>()
     let totalIncome = 0
     let totalExpenses = 0
 
     for (const tx of transactions) {
       if (tx.amount > 0) {
         totalIncome += tx.amount
-      } else {
+      } else if (!tx.category.isSavings) {
+        // Money moved to savings/investments isn't spending — exclude it here the
+        // same way lib/reports.ts's getSpendingByCategory/getMonthlyTrends do.
         const abs = Math.abs(tx.amount)
         totalExpenses += abs
-        const existing = catMap.get(tx.category.name)
-        catMap.set(tx.category.name, {
+        const existing = catMap.get(tx.categoryId)
+        catMap.set(tx.categoryId, {
+          categoryId: tx.categoryId,
           name: tx.category.name,
           amount: (existing?.amount ?? 0) + abs,
         })
@@ -82,12 +89,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Prior period totals for mom delta
-    const priorCatMap = new Map<string, { name: string; amount: number }>()
+    const priorCatMap = new Map<string, { categoryId: string; name: string; amount: number }>()
     for (const tx of priorTransactions) {
-      if (tx.amount < 0) {
+      if (tx.amount < 0 && !tx.category.isSavings) {
         const abs = Math.abs(tx.amount)
-        const existing = priorCatMap.get(tx.category.name)
-        priorCatMap.set(tx.category.name, {
+        const existing = priorCatMap.get(tx.categoryId)
+        priorCatMap.set(tx.categoryId, {
+          categoryId: tx.categoryId,
           name: tx.category.name,
           amount: (existing?.amount ?? 0) + abs,
         })
@@ -96,15 +104,12 @@ export async function POST(req: NextRequest) {
 
     // Budget utilization
     const categoryTotals = [...catMap.values()].map((cat) => {
-      const budget = budgets.find((b) => b.category.name === cat.name)
-      return { ...cat, budgeted: budget?.amount ?? null }
+      const budget = budgets.find((b) => b.categoryId === cat.categoryId)
+      return { name: cat.name, amount: cat.amount, budgeted: budget?.amount ?? null }
     })
 
     const accounts = await prisma.account.findMany({ where: { isActive: true } })
-    const currentBalance = accounts.reduce((sum, a) => {
-      if (['CHECKING', 'SAVINGS', 'INVESTMENT', 'ASSET'].includes(a.type)) return sum + a.balance
-      return sum - Math.abs(a.balance)
-    }, 0)
+    const { netWorth: currentBalance } = computeNetWorth(accounts)
 
     const aggregatedData = {
       period,
@@ -135,6 +140,10 @@ export async function POST(req: NextRequest) {
 
     const saved = await prisma.aIInsight.upsert({
       where: { period },
+      // Prisma's Json input type requires structural proof of JsonValue-recursive
+      // compatibility that TS can't derive from InsightResponse's named interface —
+      // a well-known Prisma/TS friction point for typed JSON columns, not a real
+      // type mismatch (InsightResponse is itself a plain JSON-serializable shape).
       create: { period, prompt, response: insight as never, generatedAt: new Date() },
       update: { prompt, response: insight as never, generatedAt: new Date() },
     })

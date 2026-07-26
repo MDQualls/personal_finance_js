@@ -15,12 +15,17 @@ services:
       - .env.local
     environment:
       - NODE_ENV=development
+      # Report/period date math (lib/dates.ts startOfPeriod/endOfPeriod, lib/reports.ts
+      # month bucketing) uses date-fns's local-timezone functions on Dates stored at
+      # UTC midnight — pinning the process to UTC keeps "start of month" etc. aligned
+      # with how dates are actually stored, regardless of the host machine's timezone.
+      - TZ=UTC
     depends_on:
       db:
         condition: service_healthy
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16.13-alpine
     ports:
       - "127.0.0.1:5432:5432"
     env_file:

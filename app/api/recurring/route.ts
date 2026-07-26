@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
-import type { RecurringType } from '@prisma/client'
+
+const RecurringTypeQuerySchema = z.enum(['INCOME', 'EXPENSE'])
 
 const CreateRecurringRuleSchema = z
   .object({
@@ -12,7 +13,7 @@ const CreateRecurringRuleSchema = z
     amount: z.number().int(),
     frequency: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']),
     accountId: z.string().cuid(),
-    categoryId: z.string().min(1),
+    categoryId: z.string().min(1).max(100),
     nextDate: z.string().datetime(),
     type: z.enum(['INCOME', 'EXPENSE']),
     autoPost: z.boolean().default(true),
@@ -27,13 +28,18 @@ export async function GET(req: NextRequest) {
   if (!session) return apiError('Unauthorized', 401)
 
   const { searchParams } = new URL(req.url)
-  const type = searchParams.get('type')
+  const rawType = searchParams.get('type')
+  if (rawType !== null) {
+    const typeResult = RecurringTypeQuerySchema.safeParse(rawType)
+    if (!typeResult.success) return apiError('Invalid type — must be INCOME or EXPENSE', 400)
+  }
+  const type = rawType as 'INCOME' | 'EXPENSE' | null // validated above, or null
 
   try {
     const rules = await prisma.recurringRule.findMany({
       where: {
         isActive: true,
-        ...(type ? { type: type as RecurringType } : {}),
+        ...(type ? { type } : {}),
       },
       include: { account: true, category: true },
       orderBy: { nextDate: 'asc' },

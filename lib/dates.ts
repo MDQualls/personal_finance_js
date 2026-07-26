@@ -22,7 +22,7 @@ import {
 export type Period = 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
 export type Frequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
 
-function utcToLocal(d: Date): Date {
+export function utcToLocal(d: Date): Date {
   // Dates from the DB are stored at midnight UTC. Constructing a local Date
   // from the UTC calendar parts prevents the local timezone from shifting the
   // displayed day (e.g. 2026-02-21T00:00Z rendering as Feb 20 in UTC-5).

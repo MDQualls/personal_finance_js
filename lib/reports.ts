@@ -1,5 +1,5 @@
 import { prisma } from './prisma'
-import { format, formatPeriodKey } from './dates'
+import { format, formatPeriodKey, utcToLocal } from './dates'
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { monthlyEquivalent } from './money'
 import type {
@@ -11,7 +11,81 @@ import type {
   ExpenseSplitCategory,
   CategoryComparison,
   SavingsSummary,
+  BudgetActualRow,
 } from '@/types'
+import type { AccountType } from '@prisma/client'
+
+const ASSET_ACCOUNT_TYPES: AccountType[] = ['CHECKING', 'SAVINGS', 'INVESTMENT', 'ASSET']
+
+// Single source of truth for asset-vs-liability bucketing. Credit card / loan
+// balances are debt (subtracted), not cash on hand — every place that computes a
+// net-worth-style figure (dashboard, accounts page, cash flow projection starting
+// balance, net worth history) must go through this, not re-derive it inline.
+export function computeNetWorth(
+  accounts: { type: AccountType; balance: number }[]
+): { assets: number; liabilities: number; netWorth: number } {
+  let assets = 0
+  let liabilities = 0
+  for (const account of accounts) {
+    if (ASSET_ACCOUNT_TYPES.includes(account.type)) {
+      assets += account.balance
+    } else {
+      liabilities += Math.abs(account.balance)
+    }
+  }
+  return { assets, liabilities, netWorth: assets - liabilities }
+}
+
+// Single source of truth for "amount spent against a budget in a period" — must
+// match the filters used by every other expense aggregate (lib/reports.ts's own
+// getSpendingByCategory, etc.): exclude transfers, unreviewed imports, and money
+// moved to savings, none of which are real spending against the budgeted category.
+export async function getBudgetSpent(categoryId: string, from: Date, to: Date): Promise<number> {
+  const result = await prisma.transaction.aggregate({
+    where: {
+      categoryId,
+      deletedAt: null,
+      isTransfer: false,
+      needsReview: false,
+      date: { gte: from, lte: to },
+      amount: { lt: 0 },
+    },
+    _sum: { amount: true },
+  })
+  return Math.abs(result._sum.amount ?? 0)
+}
+
+export async function getBudgetActual(from: Date, to: Date): Promise<BudgetActualRow[]> {
+  const budgets = await prisma.budget.findMany({
+    where: { isActive: true },
+    include: { category: true },
+    orderBy: { category: { name: 'asc' } },
+  })
+
+  const rows = await Promise.all(
+    budgets.map(async (budget) => {
+      const spent = await getBudgetSpent(budget.categoryId, from, to)
+      const percentage = budget.amount > 0 ? Math.round((spent / budget.amount) * 100) : 0
+
+      return {
+        categoryId: budget.categoryId,
+        categoryName: budget.category.name,
+        budgeted: budget.amount,
+        spent,
+        percentage,
+        budgetType: budget.budgetType,
+      }
+    })
+  )
+
+  return rows.sort((a, b) => {
+    const aIsAchievedGoal = a.budgetType === 'SAVINGS_GOAL' && a.percentage >= 100
+    const bIsAchievedGoal = b.budgetType === 'SAVINGS_GOAL' && b.percentage >= 100
+    if (aIsAchievedGoal && !bIsAchievedGoal) return 1
+    if (!aIsAchievedGoal && bIsAchievedGoal) return -1
+    return b.percentage - a.percentage
+  })
+}
 
 export async function getSpendingByCategory(from: Date, to: Date): Promise<SpendingByCategory[]> {
   const transactions = await prisma.transaction.findMany({
@@ -148,7 +222,10 @@ export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {
   }
 
   for (const tx of transactions) {
-    const key = format(tx.date, 'MMM yyyy')
+    // tx.date is stored at UTC midnight — reinterpret via utcToLocal before formatting
+    // so the month key can't shift to the wrong month on a non-UTC server (defense in
+    // depth: the app process is also pinned to TZ=UTC, see docker-compose.yml).
+    const key = format(utcToLocal(tx.date), 'MMM yyyy')
     const entry = monthMap.get(key)
     if (!entry) continue
     if (tx.amount > 0) {
@@ -274,15 +351,7 @@ export async function getNetWorthHistory(months = 12): Promise<NetWorthSnapshot[
 
   // Current month is always computed live — no snapshot taken yet this month
   const accounts = await prisma.account.findMany({ where: { isActive: true } })
-  let currentAssets = 0
-  let currentLiabilities = 0
-  for (const account of accounts) {
-    if (['CHECKING', 'SAVINGS', 'INVESTMENT', 'ASSET'].includes(account.type)) {
-      currentAssets += account.balance
-    } else {
-      currentLiabilities += Math.abs(account.balance)
-    }
-  }
+  const { assets: currentAssets, liabilities: currentLiabilities } = computeNetWorth(accounts)
 
   const results: NetWorthSnapshot[] = []
 

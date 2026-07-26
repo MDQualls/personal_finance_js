@@ -44,11 +44,15 @@ export function Header() {
           <input
             type="text"
             placeholder="Search transactions…"
+            aria-label="Search transactions"
             className="h-[32px] pl-8 pr-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] placeholder:text-[#b0bac6] outline-none focus:border-[#00b89c] focus:ring-1 focus:ring-[#00b89c] w-[220px] transition-colors"
           />
         </div>
 
-        <button className="relative h-[32px] w-[32px] flex items-center justify-center rounded-[8px] border border-[#e8ecf0] text-[#6b7a8d] hover:text-[#1a2332] hover:bg-[#f8fafc] transition-colors">
+        <button
+          aria-label="Notifications"
+          className="relative h-[32px] w-[32px] flex items-center justify-center rounded-[8px] border border-[#e8ecf0] text-[#6b7a8d] hover:text-[#1a2332] hover:bg-[#f8fafc] transition-colors"
+        >
           <Bell size={16} strokeWidth={1.5} />
         </button>
       </div>

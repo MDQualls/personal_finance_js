@@ -3,8 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
-
-const SYSTEM_UNCATEGORIZED_CATEGORY_ID = 'system_uncategorized'
+import { SYSTEM_UNCATEGORIZED_CATEGORY_ID } from '@/lib/constants'
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions)

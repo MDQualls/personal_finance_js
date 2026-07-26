@@ -5,10 +5,10 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
 import { startOfPeriod, endOfPeriod } from '@/lib/dates'
-import type { BudgetPeriod } from '@prisma/client'
+import { getBudgetSpent } from '@/lib/reports'
 
 const CreateBudgetSchema = z.object({
-  categoryId: z.string().min(1),
+  categoryId: z.string().min(1).max(100),
   amount: z.number().int().positive(),
   period: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).default('MONTHLY'),
   budgetType: z.enum(['SPENDING_LIMIT', 'SAVINGS_GOAL']).default('SPENDING_LIMIT'),
@@ -29,22 +29,9 @@ export async function GET(req: NextRequest) {
     const now = new Date()
     const enriched = await Promise.all(
       budgets.map(async (budget) => {
-        const start = startOfPeriod(now, budget.period as BudgetPeriod)
-        const end = endOfPeriod(now, budget.period as BudgetPeriod)
-
-        const result = await prisma.transaction.aggregate({
-          where: {
-            categoryId: budget.categoryId,
-            deletedAt: null,
-            isTransfer: false,
-            needsReview: false,
-            date: { gte: start, lte: end },
-            amount: { lt: 0 },
-          },
-          _sum: { amount: true },
-        })
-
-        const spent = Math.abs(result._sum.amount ?? 0)
+        const start = startOfPeriod(now, budget.period)
+        const end = endOfPeriod(now, budget.period)
+        const spent = await getBudgetSpent(budget.categoryId, start, end)
         return { ...budget, spent }
       })
     )

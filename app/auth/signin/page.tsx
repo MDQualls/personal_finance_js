@@ -58,11 +58,12 @@ function SignInForm() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">
+            <label htmlFor="username" className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">
               Username
             </label>
             <input
               {...register('username')}
+              id="username"
               type="text"
               autoComplete="username"
               className="w-full h-[40px] px-3 rounded-[8px] border border-[#e8ecf0] text-sm text-[#1a2332] outline-none focus:border-[#00b89c] focus:ring-1 focus:ring-[#00b89c] transition-colors"
@@ -73,11 +74,12 @@ function SignInForm() {
           </div>
 
           <div>
-            <label className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">
+            <label htmlFor="password" className="block text-[13px] font-medium font-heading text-[#1a2332] mb-1">
               Password
             </label>
             <input
               {...register('password')}
+              id="password"
               type="password"
               autoComplete="current-password"
               className="w-full h-[40px] px-3 rounded-[8px] border border-[#e8ecf0] text-sm text-[#1a2332] outline-none focus:border-[#00b89c] focus:ring-1 focus:ring-[#00b89c] transition-colors"

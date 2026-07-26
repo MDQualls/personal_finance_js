@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 
+// Same HMR-singleton pattern as lib/prisma.ts — see comment there.
 const globalForAnthropic = globalThis as unknown as { anthropic: Anthropic }
 
 export const anthropic =

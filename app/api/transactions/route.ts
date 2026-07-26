@@ -10,7 +10,7 @@ const CreateTransactionSchema = z.object({
   accountId: z.string().cuid(),
   amount: z.number().int(),
   date: z.string().datetime(),
-  categoryId: z.string().min(1),
+  categoryId: z.string().min(1).max(100),
   description: z.string().min(1).max(255),
   notes: z.string().max(1000).optional(),
   tagIds: z.array(z.string().cuid()).optional(),

@@ -10,7 +10,7 @@ const UpdateRecurringRuleSchema = z.object({
   amount: z.number().int().optional(),
   frequency: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).optional(),
   accountId: z.string().cuid().optional(),
-  categoryId: z.string().min(1).optional(),
+  categoryId: z.string().min(1).max(100).optional(),
   nextDate: z.string().datetime().optional(),
   isActive: z.boolean().optional(),
   autoPost: z.boolean().optional(),

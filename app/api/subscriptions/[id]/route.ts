@@ -10,7 +10,7 @@ const UpdateSubscriptionSchema = z.object({
   amount: z.number().int().positive().optional(),
   frequency: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).optional(),
   nextDueDate: z.string().datetime().optional(),
-  categoryId: z.string().min(1).optional(),
+  categoryId: z.string().min(1).max(100).optional(),
   notes: z.string().max(500).nullable().optional(),
   isActive: z.boolean().optional(),
   alertDays: z.number().int().min(0).max(30).optional(),

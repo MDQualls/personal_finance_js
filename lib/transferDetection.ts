@@ -1,9 +1,9 @@
 import { differenceInCalendarDays } from 'date-fns'
 import type { Transaction, TransferCandidate } from '@/types'
+import { SYSTEM_TRANSFERS_CATEGORY_ID } from '@/lib/constants'
 
 const TRANSFER_WINDOW_DAYS = 5
 const TRANSFER_KEYWORDS = ['TRANSFER', 'ZELLE', 'ACH', 'PAYMENT', 'DEPOSIT', 'SAVINGS']
-const SYSTEM_TRANSFERS_CATEGORY_ID = 'system_transfers'
 
 function hasTransferKeyword(description: string): boolean {
   const upper = description.toUpperCase()

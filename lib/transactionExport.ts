@@ -10,6 +10,10 @@ export type ExportParams = {
 
 export async function fetchTransactionsForExport(params: ExportParams): Promise<Transaction[]> {
   const { from, to, accountId, categoryId } = params
+  // Prisma's inferred return type (from this specific `include`) is structurally
+  // compatible with the hand-written @/types Transaction shape, but TS can't prove
+  // that through the dynamic spread in `where` — cast rather than duplicate the
+  // relation-inclusion type here.
   return prisma.transaction.findMany({
     where: {
       deletedAt: null,
@@ -22,7 +26,17 @@ export async function fetchTransactionsForExport(params: ExportParams): Promise<
   }) as Promise<Transaction[]>
 }
 
-function csvField(value: string | number): string {
+// A leading =, +, -, @, tab, or CR is interpreted as a formula by Excel/Sheets when
+// a CSV is opened — a description imported verbatim (lib/normalize.ts's sanitizer
+// only strips control characters, not these) could otherwise execute on open.
+// Prefixing with a single quote forces text interpretation (standard OWASP CSV
+// injection mitigation). Only applied to freeform/user-influenced text fields —
+// never to the amount field, where a leading "-" is a legitimate negative number.
+export function escapeFormulaInjection(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+}
+
+export function csvField(value: string | number): string {
   const str = String(value)
   return str.includes(',') || str.includes('"') || str.includes('\n')
     ? `"${str.replace(/"/g, '""')}"`
@@ -36,12 +50,12 @@ export function serializeTransactionsToCsv(transactions: Transaction[]): string 
     const tags = tx.tags?.map((t) => t.name).join('; ') ?? ''
     return [
       csvField(date),
-      csvField(tx.description),
+      csvField(escapeFormulaInjection(tx.description)),
       csvField((tx.amount / 100).toFixed(2)),
-      csvField(tx.account?.name ?? ''),
-      csvField(tx.category?.name ?? ''),
-      csvField(tags),
-      csvField(tx.notes ?? ''),
+      csvField(escapeFormulaInjection(tx.account?.name ?? '')),
+      csvField(escapeFormulaInjection(tx.category?.name ?? '')),
+      csvField(escapeFormulaInjection(tags)),
+      csvField(escapeFormulaInjection(tx.notes ?? '')),
     ].join(',')
   })
   return [headers.join(','), ...rows].join('\n')

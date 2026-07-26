@@ -11,7 +11,7 @@ const UpdateCategorySchema = z.object({
   icon: z.string().max(50).optional(),
   isActive: z.boolean().optional(),
   isIncome: z.boolean().optional(),
-  parentId: z.string().min(1).nullable().optional(),
+  parentId: z.string().min(1).max(100).nullable().optional(),
 })
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -77,6 +77,17 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       where: { categoryId: params.id, deletedAt: null },
     })
     if (txCount > 0) return apiError('Cannot delete a category referenced by transactions. Archive it instead.', 409)
+
+    // Archiving a parent with still-active children would make those children
+    // unreachable in every category picker (they all query parentId: null for
+    // top-level, then nested active children) even though they remain isActive.
+    // Matches the same guard PATCH already applies when reparenting.
+    const activeChildCount = await prisma.category.count({
+      where: { parentId: params.id, isActive: true },
+    })
+    if (activeChildCount > 0) {
+      return apiError('Cannot archive a category with active subcategories. Archive or reassign them first.', 409)
+    }
 
     await prisma.category.update({
       where: { id: params.id },

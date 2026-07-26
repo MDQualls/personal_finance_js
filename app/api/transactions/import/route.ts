@@ -7,12 +7,13 @@ import { prisma } from '@/lib/prisma'
 import { apiSuccess, apiError } from '@/lib/api'
 import { toCents } from '@/lib/money'
 import { normalizeDescription, sanitizeString } from '@/lib/normalize'
+import { SYSTEM_UNCATEGORIZED_CATEGORY_ID } from '@/lib/constants'
 
 const ImportRowSchema = z.object({
-  date: z.string(),
-  amount: z.string(),
+  date: z.string().max(40), // ISO date/datetime strings are ~10-30 chars
+  amount: z.string().max(20), // e.g. "-123456789.99" — far more headroom than any real amount needs
   description: z.string().max(255),
-  categoryId: z.string().min(1).optional(),
+  categoryId: z.string().min(1).max(100).optional(),
   accountId: z.string().cuid(),
   notes: z.string().max(1000).optional(),
 })
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest) {
   // Fetch rules once
   const autoRules = await prisma.autoRule.findMany({ orderBy: { priority: 'asc' } })
   const merchantRules = await prisma.merchantRule.findMany()
+  const uncategorized = await prisma.category.findFirst({ where: { name: 'Uncategorized', isSystem: true } })
+  const uncategorizedId = uncategorized?.id ?? SYSTEM_UNCATEGORIZED_CATEGORY_ID
 
   // Fetch existing hashes from DB to detect duplicates
   const existingHashes = new Set<string>()
@@ -102,23 +105,30 @@ export async function POST(req: NextRequest) {
 
       // Fall back to Uncategorized system category
       if (!categoryId) {
-        const uncategorized = await prisma.category.findFirst({
-          where: { name: 'Uncategorized', isSystem: true },
-        })
-        categoryId = uncategorized?.id ?? 'system_uncategorized'
+        categoryId = uncategorizedId
       }
 
-      await prisma.transaction.create({
-        data: {
-          accountId: row.accountId,
-          amount: amountCents,
-          date: dateObj,
-          categoryId,
-          description,
-          notes: row.notes ? sanitizeString(row.notes) : null,
-          needsReview: true,
-        },
-      })
+      // Balance must be updated atomically with the transaction create (CLAUDE.md
+      // invariant) — same $transaction pattern as POST /api/transactions. Each row
+      // gets its own transaction rather than one covering the whole batch, so a bad
+      // row still only skips that row instead of rolling back the entire import.
+      await prisma.$transaction([
+        prisma.transaction.create({
+          data: {
+            accountId: row.accountId,
+            amount: amountCents,
+            date: dateObj,
+            categoryId,
+            description,
+            notes: row.notes ? sanitizeString(row.notes) : null,
+            needsReview: true,
+          },
+        }),
+        prisma.account.update({
+          where: { id: row.accountId },
+          data: { balance: { increment: amountCents } },
+        }),
+      ])
 
       imported++
     } catch (err) {

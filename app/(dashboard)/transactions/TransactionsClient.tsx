@@ -175,6 +175,7 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               placeholder="Search transactions…"
+              aria-label="Search transactions"
               className="h-[36px] pl-8 pr-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] placeholder:text-[#b0bac6] outline-none focus:border-[#00b89c] focus:ring-1 focus:ring-[#00b89c] w-[220px] transition-colors"
             />
           </div>
@@ -182,6 +183,7 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
           <select
             value={accountFilter}
             onChange={(e) => { setAccountFilter(e.target.value); setPage(1) }}
+            aria-label="Filter by account"
             className="h-[36px] px-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] bg-white outline-none focus:border-[#00b89c] cursor-pointer"
           >
             <option value="">All Accounts</option>
@@ -193,6 +195,7 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
           <select
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setPage(1) }}
+            aria-label="Filter by category"
             className="h-[36px] px-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] bg-white outline-none focus:border-[#00b89c] cursor-pointer"
           >
             <option value="">All Categories</option>
@@ -209,6 +212,7 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
           <select
             value={yearFilter}
             onChange={(e) => { setYearFilter(e.target.value === '' ? '' : Number(e.target.value)); setPage(1) }}
+            aria-label="Filter by year"
             className="h-[36px] px-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] bg-white outline-none focus:border-[#00b89c] cursor-pointer"
           >
             <option value="">All Years</option>
@@ -221,6 +225,7 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
             <select
               value={monthFilter}
               onChange={(e) => { setMonthFilter(e.target.value === '' ? '' : Number(e.target.value)); setPage(1) }}
+              aria-label="Filter by month"
               className="h-[36px] px-3 rounded-[8px] border border-[#e8ecf0] text-[13px] text-[#1a2332] bg-white outline-none focus:border-[#00b89c] cursor-pointer"
             >
               <option value="">All Months</option>

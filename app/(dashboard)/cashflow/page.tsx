@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { projectBalance } from '@/lib/projection'
+import { computeNetWorth } from '@/lib/reports'
 import { CashFlowClient } from './CashFlowClient'
 
 const VALID_WINDOWS = [30, 60, 90] as const
@@ -25,7 +26,7 @@ export default async function CashFlowPage({
     prisma.subscription.findMany({ where: { isActive: true } }),
   ])
 
-  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0)
+  const { netWorth: totalBalance } = computeNetWorth(accounts)
 
   const data = projectBalance(
     totalBalance,
