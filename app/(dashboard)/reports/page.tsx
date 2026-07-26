@@ -5,13 +5,21 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
 import { SpendingPieChart } from '@/components/charts/SpendingPieChart'
 import { MonthlyTrendChart } from '@/components/charts/MonthlyTrendChart'
+import { SavingsRateTrendChart } from '@/components/charts/SavingsRateTrendChart'
 import { NetWorthChart } from '@/components/charts/NetWorthChart'
 import { BudgetActualChart } from '@/components/charts/BudgetActualChart'
 import { Button } from '@/components/ui/Button'
-import { formatCurrency } from '@/lib/money'
-import { summarizeTrends } from '@/lib/trendSummary'
+import { formatCurrency, monthlyEquivalent } from '@/lib/money'
+import { summarizeTrends, computeSavingsRateSeries } from '@/lib/trendSummary'
 import Link from 'next/link'
 import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor, ExpenseSplit, CategoryComparison, SavingsSummary } from '@/types'
+
+type BudgetGoalRow = {
+  isActive: boolean
+  budgetType: 'SPENDING_LIMIT' | 'SAVINGS_GOAL'
+  amount: number
+  period: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
+}
 
 export default function ReportsPage() {
   const [spending, setSpending] = useState<SpendingByCategory[]>([])
@@ -22,6 +30,7 @@ export default function ReportsPage() {
   const [expenseSplit, setExpenseSplit] = useState<ExpenseSplit | null>(null)
   const [comparison, setComparison] = useState<CategoryComparison[]>([])
   const [savings, setSavings] = useState<SavingsSummary | null>(null)
+  const [savingsGoalMonthly, setSavingsGoalMonthly] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const now = new Date()
@@ -39,7 +48,8 @@ export default function ReportsPage() {
       fetch(`/api/reports/expense-split?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
       fetch(`/api/reports/spending?from=${from}T00:00:00Z&compare=true`).then((r) => r.json()),
       fetch(`/api/reports/savings?from=${from}T00:00:00Z`).then((r) => r.json()),
-    ]).then(([s, t, n, b, c, e, cmp, sv]) => {
+      fetch('/api/budgets').then((r) => r.json()),
+    ]).then(([s, t, n, b, c, e, cmp, sv, bg]) => {
       setSpending(s.data ?? [])
       setTrends(t.data ?? [])
       setNetWorth(n.data ?? [])
@@ -48,6 +58,12 @@ export default function ReportsPage() {
       setExpenseSplit(e.data ?? null)
       setComparison(cmp.data ?? [])
       setSavings(sv.data ?? null)
+      const goalBudgets: BudgetGoalRow[] = bg.data ?? []
+      setSavingsGoalMonthly(
+        goalBudgets
+          .filter((budget) => budget.isActive && budget.budgetType === 'SAVINGS_GOAL')
+          .reduce((sum, budget) => sum + monthlyEquivalent(budget.amount, budget.period), 0)
+      )
       setLoading(false)
     })
   }, [from, to])
@@ -350,6 +366,18 @@ export default function ReportsPage() {
               </a>
             </div>
             <MonthlyTrendChart data={trends} />
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Savings Rate Trend"
+              subtitle={
+                savingsGoalMonthly > 0
+                  ? 'Net ÷ income per month, vs. your active savings goal'
+                  : 'Net ÷ income per month'
+              }
+            />
+            <SavingsRateTrendChart data={computeSavingsRateSeries(trends, savingsGoalMonthly)} />
           </Card>
 
           <Card>

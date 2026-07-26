@@ -1,4 +1,4 @@
-import { summarizeTrends } from './trendSummary'
+import { summarizeTrends, computeSavingsRateSeries } from './trendSummary'
 import type { MonthlyTrend } from '@/types'
 
 const trend = (overrides: Partial<MonthlyTrend> = {}): MonthlyTrend => ({
@@ -81,5 +81,52 @@ describe('summarizeTrends', () => {
     expect(result?.worstMonth).toEqual({ month: 'Jan 2026', expenses: 250000 })
     expect(result?.thisMonthExpenses).toBe(250000)
     expect(result?.vsAverageDelta).toBe(0)
+  })
+})
+
+describe('computeSavingsRateSeries', () => {
+  it('computes savings rate as a percentage of income per month', () => {
+    const result = computeSavingsRateSeries([
+      trend({ month: 'Jan 2026', income: 400000, net: 100000 }), // 25%
+      trend({ month: 'Feb 2026', income: 400000, net: 200000 }), // 50%
+    ])
+
+    expect(result[0]).toEqual({ month: 'Jan 2026', savingsRate: 25, goalRate: null })
+    expect(result[1]).toEqual({ month: 'Feb 2026', savingsRate: 50, goalRate: null })
+  })
+
+  it('treats a zero-income month as a 0% savings rate, not a division error', () => {
+    const result = computeSavingsRateSeries([trend({ income: 0, net: 0 })])
+
+    expect(result[0].savingsRate).toBe(0)
+  })
+
+  it('omits goalRate (null) when no monthlyGoal is passed', () => {
+    const result = computeSavingsRateSeries([trend({ income: 400000, net: 100000 })])
+
+    expect(result[0].goalRate).toBeNull()
+  })
+
+  it('expresses the monthly goal as a rate against that month\'s actual income', () => {
+    const result = computeSavingsRateSeries(
+      [
+        trend({ month: 'Jan 2026', income: 500000, net: 100000 }),
+        trend({ month: 'Feb 2026', income: 1000000, net: 100000 }),
+      ],
+      150000 // $1,500 monthly goal
+    )
+
+    expect(result[0].goalRate).toBe(30) // 150000 / 500000
+    expect(result[1].goalRate).toBe(15) // 150000 / 1000000
+  })
+
+  it('sets goalRate to null for a zero-income month even when a goal is set', () => {
+    const result = computeSavingsRateSeries([trend({ income: 0, net: 0 })], 150000)
+
+    expect(result[0].goalRate).toBeNull()
+  })
+
+  it('returns an empty array for an empty trends array', () => {
+    expect(computeSavingsRateSeries([])).toEqual([])
   })
 })

@@ -286,6 +286,12 @@ export type TrendSummary = {
   worstMonth: { month: string; expenses: number } // highest expenses
 }
 
+export type SavingsRatePoint = {
+  month: string
+  savingsRate: number // percent, (net / income) for this month; 0 when income is 0
+  goalRate: number | null // percent equivalent of the active SAVINGS_GOAL budget total for this month's income; null when there's no active goal or income is 0
+}
+
 // ─── Alert Types ──────────────────────────────────────────────────────────────
 
 export type BudgetAlert = {
