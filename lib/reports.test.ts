@@ -1,4 +1,4 @@
-import { getCostFloor, getExpenseSplit } from './reports'
+import { getCostFloor, getExpenseSplit, getSpendingComparison } from './reports'
 import { prismaMock } from './__mocks__/prisma'
 import { mockRecurringRule } from '@/__tests__/factories/recurringRule'
 import { mockSubscription } from '@/__tests__/factories/subscription'
@@ -190,5 +190,94 @@ describe('getExpenseSplit', () => {
       fixed: { total: 0, percentage: 0, categories: [] },
       variable: { total: 0, percentage: 0, categories: [] },
     })
+  })
+})
+
+describe('getSpendingComparison', () => {
+  const ANCHOR = new Date('2026-07-15T00:00:00Z')
+
+  it('always compares full calendar months regardless of the anchor date within the month', async () => {
+    prismaMock.transaction.findMany.mockResolvedValue([])
+
+    await getSpendingComparison(ANCHOR)
+
+    expect(prismaMock.transaction.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          date: {
+            gte: new Date('2026-07-01T00:00:00.000Z'),
+            lte: new Date('2026-07-31T23:59:59.999Z'),
+          },
+        }),
+      })
+    )
+    expect(prismaMock.transaction.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          date: {
+            gte: new Date('2026-06-01T00:00:00.000Z'),
+            lte: new Date('2026-06-30T23:59:59.999Z'),
+          },
+        }),
+      })
+    )
+  })
+
+  it('computes delta and percentChange for a category present in both periods', async () => {
+    prismaMock.transaction.findMany
+      .mockResolvedValueOnce([txWithCategory('cuid_category_groceries', -55000, { name: 'Groceries' })] as never)
+      .mockResolvedValueOnce([txWithCategory('cuid_category_groceries', -50000, { name: 'Groceries' })] as never)
+
+    const [result] = await getSpendingComparison(ANCHOR)
+
+    expect(result).toEqual({
+      categoryId: 'cuid_category_groceries',
+      categoryName: 'Groceries',
+      color: '#000000',
+      currentAmount: 55000,
+      priorAmount: 50000,
+      delta: 5000,
+      percentChange: 10,
+    })
+  })
+
+  it('sets percentChange to null for a category with no spending in the prior period ("new")', async () => {
+    prismaMock.transaction.findMany
+      .mockResolvedValueOnce([txWithCategory('cuid_category_new', -10000, { name: 'New Thing' })] as never)
+      .mockResolvedValueOnce([])
+
+    const [result] = await getSpendingComparison(ANCHOR)
+
+    expect(result.priorAmount).toBe(0)
+    expect(result.delta).toBe(10000)
+    expect(result.percentChange).toBeNull()
+  })
+
+  it('includes a category that had spending last period but none this period', async () => {
+    prismaMock.transaction.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([txWithCategory('cuid_category_gone', -20000, { name: 'Gone Now' })] as never)
+
+    const [result] = await getSpendingComparison(ANCHOR)
+
+    expect(result.currentAmount).toBe(0)
+    expect(result.priorAmount).toBe(20000)
+    expect(result.delta).toBe(-20000)
+    expect(result.percentChange).toBe(-100)
+  })
+
+  it('sorts results by current-period amount descending', async () => {
+    prismaMock.transaction.findMany
+      .mockResolvedValueOnce([
+        txWithCategory('cuid_category_small', -1000, { name: 'Small' }),
+        txWithCategory('cuid_category_big', -90000, { name: 'Big' }),
+      ] as never)
+      .mockResolvedValueOnce([])
+
+    const result = await getSpendingComparison(ANCHOR)
+
+    expect(result.map((r) => r.categoryName)).toEqual(['Big', 'Small'])
   })
 })

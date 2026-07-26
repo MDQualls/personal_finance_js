@@ -2,7 +2,15 @@ import { prisma } from './prisma'
 import { format, formatPeriodKey } from './dates'
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { monthlyEquivalent } from './money'
-import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, CostFloor, ExpenseSplit, ExpenseSplitCategory } from '@/types'
+import type {
+  SpendingByCategory,
+  MonthlyTrend,
+  NetWorthSnapshot,
+  CostFloor,
+  ExpenseSplit,
+  ExpenseSplitCategory,
+  CategoryComparison,
+} from '@/types'
 
 export async function getSpendingByCategory(from: Date, to: Date): Promise<SpendingByCategory[]> {
   const transactions = await prisma.transaction.findMany({
@@ -42,6 +50,46 @@ export async function getSpendingByCategory(from: Date, to: Date): Promise<Spend
       percentage: total > 0 ? Math.round((amount / total) * 100) : 0,
     }))
     .sort((a, b) => b.amount - a.amount)
+}
+
+// Always compares full calendar months — `anchor` can be any date within the "current"
+// month, the "prior" month is always the immediately preceding calendar month, regardless
+// of whatever custom from/to range the rest of the reports page may be using.
+export async function getSpendingComparison(anchor: Date): Promise<CategoryComparison[]> {
+  const currentStart = startOfMonth(anchor)
+  const currentEnd = endOfMonth(anchor)
+  const priorMonth = subMonths(anchor, 1)
+  const priorStart = startOfMonth(priorMonth)
+  const priorEnd = endOfMonth(priorMonth)
+
+  const [current, prior] = await Promise.all([
+    getSpendingByCategory(currentStart, currentEnd),
+    getSpendingByCategory(priorStart, priorEnd),
+  ])
+
+  const currentMap = new Map(current.map((c) => [c.categoryId, c]))
+  const priorMap = new Map(prior.map((c) => [c.categoryId, c]))
+  const allCategoryIds = new Set([...currentMap.keys(), ...priorMap.keys()])
+
+  const results: CategoryComparison[] = []
+  for (const categoryId of allCategoryIds) {
+    const currentEntry = currentMap.get(categoryId)
+    const priorEntry = priorMap.get(categoryId)
+    const currentAmount = currentEntry?.amount ?? 0
+    const priorAmount = priorEntry?.amount ?? 0
+
+    results.push({
+      categoryId,
+      categoryName: (currentEntry ?? priorEntry)!.categoryName,
+      color: (currentEntry ?? priorEntry)!.color,
+      currentAmount,
+      priorAmount,
+      delta: currentAmount - priorAmount,
+      percentChange: priorAmount > 0 ? Math.round(((currentAmount - priorAmount) / priorAmount) * 100) : null,
+    })
+  }
+
+  return results.sort((a, b) => b.currentAmount - a.currentAmount)
 }
 
 export async function getMonthlyTrends(months = 6): Promise<MonthlyTrend[]> {

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { formatCurrency } from '@/lib/money'
 import { summarizeTrends } from '@/lib/trendSummary'
 import Link from 'next/link'
-import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor, ExpenseSplit } from '@/types'
+import type { SpendingByCategory, MonthlyTrend, NetWorthSnapshot, BudgetActualRow, CostFloor, ExpenseSplit, CategoryComparison } from '@/types'
 
 export default function ReportsPage() {
   const [spending, setSpending] = useState<SpendingByCategory[]>([])
@@ -20,6 +20,7 @@ export default function ReportsPage() {
   const [budgetActual, setBudgetActual] = useState<BudgetActualRow[]>([])
   const [costFloor, setCostFloor] = useState<CostFloor | null>(null)
   const [expenseSplit, setExpenseSplit] = useState<ExpenseSplit | null>(null)
+  const [comparison, setComparison] = useState<CategoryComparison[]>([])
   const [loading, setLoading] = useState(true)
 
   const now = new Date()
@@ -35,13 +36,15 @@ export default function ReportsPage() {
       fetch(`/api/reports/budget-actual?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
       fetch('/api/reports/cost-floor').then((r) => r.json()),
       fetch(`/api/reports/expense-split?from=${from}T00:00:00Z&to=${to}T23:59:59Z`).then((r) => r.json()),
-    ]).then(([s, t, n, b, c, e]) => {
+      fetch(`/api/reports/spending?from=${from}T00:00:00Z&compare=true`).then((r) => r.json()),
+    ]).then(([s, t, n, b, c, e, cmp]) => {
       setSpending(s.data ?? [])
       setTrends(t.data ?? [])
       setNetWorth(n.data ?? [])
       setBudgetActual(b.data ?? [])
       setCostFloor(c.data ?? null)
       setExpenseSplit(e.data ?? null)
+      setComparison(cmp.data ?? [])
       setLoading(false)
     })
   }, [from, to])
@@ -138,22 +141,46 @@ export default function ReportsPage() {
             </Card>
 
             <Card>
-              <CardHeader title="Top Categories" />
+              <CardHeader title="Top Categories" subtitle="vs. previous calendar month" />
               <div className="space-y-3">
-                {spending.slice(0, 8).map((item) => (
-                  <div key={item.categoryId} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-[13px] text-[#1a2332]">{item.categoryName}</span>
+                {spending.slice(0, 8).map((item) => {
+                  const cmp = comparison.find((c) => c.categoryId === item.categoryId)
+                  return (
+                    <div key={item.categoryId}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span className="text-[13px] text-[#1a2332]">{item.categoryName}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[13px] font-semibold font-tabular text-[#1a2332]">
+                            ${(item.amount / 100).toFixed(2)}
+                          </span>
+                          <span className="text-[12px] text-[#6b7a8d] ml-2">{item.percentage}%</span>
+                        </div>
+                      </div>
+                      {cmp && (
+                        <p
+                          className={`text-[11px] font-tabular mt-0.5 ml-4 ${
+                            cmp.percentChange === null
+                              ? 'text-[#6b7a8d]'
+                              : cmp.delta > 0
+                                ? 'text-[#ef4444]'
+                                : cmp.delta < 0
+                                  ? 'text-[#22c55e]'
+                                  : 'text-[#6b7a8d]'
+                          }`}
+                        >
+                          {cmp.percentChange === null
+                            ? 'New this month'
+                            : `${cmp.delta >= 0 ? '+' : '-'}${formatCurrency(Math.abs(cmp.delta))} (${
+                                cmp.percentChange >= 0 ? '+' : ''
+                              }${cmp.percentChange}%) vs last month`}
+                        </p>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <span className="text-[13px] font-semibold font-tabular text-[#1a2332]">
-                        ${(item.amount / 100).toFixed(2)}
-                      </span>
-                      <span className="text-[12px] text-[#6b7a8d] ml-2">{item.percentage}%</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
                 {spending.length === 0 && (
                   <p className="text-[13px] text-[#6b7a8d]">No spending data for this period.</p>
                 )}

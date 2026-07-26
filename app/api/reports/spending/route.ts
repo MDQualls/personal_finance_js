@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { apiSuccess, apiError } from '@/lib/api'
-import { getSpendingByCategory } from '@/lib/reports'
+import { getSpendingByCategory, getSpendingComparison } from '@/lib/reports'
 
 function csvField(value: string | number): string {
   const str = String(value)
@@ -19,12 +19,18 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const format = searchParams.get('format')
+  const compare = searchParams.get('compare') === 'true'
 
   const now = new Date()
   const fromDate = from ? new Date(from) : new Date(now.getFullYear(), now.getMonth(), 1)
   const toDate = to ? new Date(to) : new Date(now.getFullYear(), now.getMonth() + 1, 0)
 
   try {
+    if (compare) {
+      const data = await getSpendingComparison(fromDate)
+      return apiSuccess(data)
+    }
+
     const data = await getSpendingByCategory(fromDate, toDate)
 
     if (format === 'csv') {

@@ -3,10 +3,12 @@ import { mockSession, noSession } from '@/lib/__mocks__/auth'
 
 jest.mock('@/lib/reports', () => ({
   getSpendingByCategory: jest.fn(),
+  getSpendingComparison: jest.fn(),
 }))
 
-import { getSpendingByCategory } from '@/lib/reports'
+import { getSpendingByCategory, getSpendingComparison } from '@/lib/reports'
 const mockGetSpending = getSpendingByCategory as jest.Mock
+const mockGetComparison = getSpendingComparison as jest.Mock
 
 const spendingRow = (overrides = {}) => ({
   categoryId: 'cuid_category_1',
@@ -83,6 +85,54 @@ describe('GET /api/reports/spending', () => {
     mockGetSpending.mockRejectedValue(new Error('DB error'))
 
     const res = await GET(new Request('http://localhost/api/reports/spending') as never)
+    expect(res.status).toBe(500)
+  })
+
+  it('calls getSpendingComparison instead of getSpendingByCategory when compare=true', async () => {
+    mockSession()
+    mockGetComparison.mockResolvedValue([
+      {
+        categoryId: 'cuid_category_1',
+        categoryName: 'Groceries',
+        color: '#22c55e',
+        currentAmount: 50000,
+        priorAmount: 45000,
+        delta: 5000,
+        percentChange: 11,
+      },
+    ])
+
+    const res = await GET(new Request('http://localhost/api/reports/spending?from=2026-07-01&compare=true') as never)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockGetSpending).not.toHaveBeenCalled()
+    expect(body.data[0]).toEqual({
+      categoryId: 'cuid_category_1',
+      categoryName: 'Groceries',
+      color: '#22c55e',
+      currentAmount: 50000,
+      priorAmount: 45000,
+      delta: 5000,
+      percentChange: 11,
+    })
+  })
+
+  it('passes the parsed from date through to getSpendingComparison', async () => {
+    mockSession()
+    mockGetComparison.mockResolvedValue([])
+
+    await GET(new Request('http://localhost/api/reports/spending?from=2026-07-15&compare=true') as never)
+
+    const [fromArg] = mockGetComparison.mock.calls[0]
+    expect(fromArg.toISOString().slice(0, 10)).toBe('2026-07-15')
+  })
+
+  it('returns 500 when getSpendingComparison throws', async () => {
+    mockSession()
+    mockGetComparison.mockRejectedValue(new Error('DB error'))
+
+    const res = await GET(new Request('http://localhost/api/reports/spending?compare=true') as never)
     expect(res.status).toBe(500)
   })
 })

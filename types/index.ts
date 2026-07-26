@@ -246,6 +246,16 @@ export type CostFloor = {
   totalMonthly: number // cents
 }
 
+export type CategoryComparison = {
+  categoryId: string
+  categoryName: string
+  color: string
+  currentAmount: number // cents
+  priorAmount: number // cents
+  delta: number // cents, currentAmount - priorAmount
+  percentChange: number | null // null when priorAmount is 0 (undefined/"new" — can't express as a percent)
+}
+
 export type ExpenseSplitCategory = {
   categoryId: string
   categoryName: string
