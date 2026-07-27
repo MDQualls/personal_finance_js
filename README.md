@@ -32,7 +32,7 @@ A self-hosted, single-user personal finance dashboard. Track accounts, transacti
 | Auth | NextAuth.js (Credentials, JWT) |
 | Styling | Tailwind CSS |
 | Charts | Recharts |
-| AI | Anthropic Claude (`claude-sonnet-4-20250514`) |
+| AI | Anthropic Claude (`claude-sonnet-5`) |
 | Forms | react-hook-form + Zod |
 | Icons | Lucide React |
 | Testing | Jest, Testing Library, jest-mock-extended |

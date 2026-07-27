@@ -130,12 +130,14 @@ export async function POST(req: NextRequest) {
     const prompt = buildInsightPrompt(aggregatedData)
 
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-5',
       max_tokens: 2048,
+      thinking: { type: 'disabled' },
       messages: [{ role: 'user', content: prompt }],
     })
 
-    const rawText = message.content[0].type === 'text' ? message.content[0].text : ''
+    const textBlock = message.content.find((block) => block.type === 'text')
+    const rawText = textBlock?.type === 'text' ? textBlock.text : ''
     const insight: InsightResponse = JSON.parse(rawText)
 
     const saved = await prisma.aIInsight.upsert({
