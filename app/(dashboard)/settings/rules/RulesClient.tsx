@@ -14,7 +14,7 @@ import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 type AutoRule = { id: string; pattern: string; isRegex: boolean; categoryId: string; priority: number }
-type Category = { id: string; name: string }
+type Category = { id: string; name: string; children: { id: string; name: string }[] }
 type MerchantRule = { id: string; pattern: string; isRegex: boolean; displayName: string }
 
 interface Props {
@@ -108,7 +108,15 @@ export function RulesClient({ rules, categories, merchantRules }: Props) {
     router.refresh()
   }
 
-  const categoryOptions = categories.map((c) => ({ value: c.id, label: c.name }))
+  const categoryGroups = categories.map((cat) => ({
+    label: cat.name,
+    options: [
+      { value: cat.id, label: cat.name },
+      ...cat.children.map((sub) => ({ value: sub.id, label: `  ${sub.name}` })),
+    ],
+  }))
+
+  const flatCategories = categories.flatMap((cat) => [cat, ...cat.children])
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -139,7 +147,7 @@ export function RulesClient({ rules, categories, merchantRules }: Props) {
           ) : (
             <div className="divide-y divide-[#e8ecf0]">
               {rules.map((rule, i) => {
-                const cat = categories.find((c) => c.id === rule.categoryId)
+                const cat = flatCategories.find((c) => c.id === rule.categoryId)
                 return (
                   <div key={rule.id} className="flex items-center justify-between px-5 py-3">
                     <div className="flex items-center gap-3">
@@ -237,7 +245,7 @@ export function RulesClient({ rules, categories, merchantRules }: Props) {
           </label>
           <Select
             label="Category"
-            options={categoryOptions}
+            groups={categoryGroups}
             placeholder="Select category…"
             {...autoRuleForm.register('categoryId')}
             error={autoRuleForm.formState.errors.categoryId?.message}

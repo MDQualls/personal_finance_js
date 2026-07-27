@@ -18,10 +18,5 @@ export default async function RulesSettingsPage() {
     prisma.merchantRule.findMany({ orderBy: { createdAt: 'asc' } }),
   ])
 
-  const categories = categoryTree.flatMap((cat) => [
-    { id: cat.id, name: cat.name },
-    ...cat.children.map((sub) => ({ id: sub.id, name: sub.name })),
-  ])
-
-  return <RulesClient rules={rules} categories={categories} merchantRules={merchantRules} />
+  return <RulesClient rules={rules} categories={categoryTree} merchantRules={merchantRules} />
 }
