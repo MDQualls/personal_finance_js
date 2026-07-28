@@ -45,6 +45,7 @@ beforeEach(() => {
     data: { accounts: [{ balances: { current: null } }] },
   })
   prismaMock.merchantRule.findMany.mockResolvedValue([])
+  prismaMock.autoRule.findMany.mockResolvedValue([])
   prismaMock.plaidItem.update.mockResolvedValue(mockPlaidItem({ id: ITEM_ID }) as never)
 })
 
@@ -258,6 +259,137 @@ describe('POST /api/plaid/sync', () => {
     expect(prismaMock.transaction.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ categoryId: 'cuid_category_bank_fee' }),
+      })
+    )
+  })
+
+  it('overrides Plaid\'s mapped category when an auto-rule matches the description', async () => {
+    mockSession()
+    const mappedAccount = mockPlaidAccount({ plaidAccountId: 'plaid_acct_1', accountId: 'cuid_account_1' })
+    prismaMock.plaidItem.findUnique.mockResolvedValue(
+      { ...mockPlaidItem({ id: ITEM_ID }), accounts: [mappedAccount] } as never
+    )
+    ;(plaidClient.transactionsSync as jest.Mock).mockResolvedValue(
+      emptySyncPage({
+        added: [
+          {
+            transaction_id: 'ptx_rule_1',
+            account_id: 'plaid_acct_1',
+            amount: 24,
+            date: '2026-07-28',
+            merchant_name: 'Value Village Thrift St',
+            personal_finance_category: { primary: 'GENERAL_MERCHANDISE' },
+          },
+        ],
+      })
+    )
+    prismaMock.autoRule.findMany.mockResolvedValue([
+      {
+        id: 'cuid_rule_1',
+        pattern: 'Value Village Thrift St',
+        isRegex: false,
+        categoryId: 'cuid_category_thrifting',
+        tagId: null,
+        priority: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as never)
+    prismaMock.category.findFirst.mockResolvedValue(mockCategory({ id: 'cuid_category_shopping', name: 'Shopping' }) as never)
+    prismaMock.transaction.upsert.mockResolvedValue({} as never)
+
+    await POST(makeRequest(ITEM_ID) as never)
+
+    expect(prismaMock.transaction.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ categoryId: 'cuid_category_thrifting' }),
+      })
+    )
+  })
+
+  it('keeps Plaid\'s mapped category when auto-rules are defined but none match', async () => {
+    mockSession()
+    const mappedAccount = mockPlaidAccount({ plaidAccountId: 'plaid_acct_1', accountId: 'cuid_account_1' })
+    prismaMock.plaidItem.findUnique.mockResolvedValue(
+      { ...mockPlaidItem({ id: ITEM_ID }), accounts: [mappedAccount] } as never
+    )
+    ;(plaidClient.transactionsSync as jest.Mock).mockResolvedValue(
+      emptySyncPage({
+        added: [
+          {
+            transaction_id: 'ptx_rule_2',
+            account_id: 'plaid_acct_1',
+            amount: 45,
+            date: '2026-07-28',
+            merchant_name: 'Trader Joes',
+            personal_finance_category: { primary: 'FOOD_AND_DRINK' },
+          },
+        ],
+      })
+    )
+    prismaMock.autoRule.findMany.mockResolvedValue([
+      {
+        id: 'cuid_rule_2',
+        pattern: 'Goodwill',
+        isRegex: false,
+        categoryId: 'cuid_category_thrifting',
+        tagId: null,
+        priority: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as never)
+    prismaMock.category.findFirst.mockResolvedValue(mockCategory({ id: 'cuid_category_dining', name: 'Food & Dining' }) as never)
+    prismaMock.transaction.upsert.mockResolvedValue({} as never)
+
+    await POST(makeRequest(ITEM_ID) as never)
+
+    expect(prismaMock.transaction.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ categoryId: 'cuid_category_dining' }),
+      })
+    )
+  })
+
+  it('matches an auto-rule via regex pattern', async () => {
+    mockSession()
+    const mappedAccount = mockPlaidAccount({ plaidAccountId: 'plaid_acct_1', accountId: 'cuid_account_1' })
+    prismaMock.plaidItem.findUnique.mockResolvedValue(
+      { ...mockPlaidItem({ id: ITEM_ID }), accounts: [mappedAccount] } as never
+    )
+    ;(plaidClient.transactionsSync as jest.Mock).mockResolvedValue(
+      emptySyncPage({
+        added: [
+          {
+            transaction_id: 'ptx_rule_3',
+            account_id: 'plaid_acct_1',
+            amount: 12,
+            date: '2026-07-28',
+            merchant_name: 'GOODWILL #4521',
+          },
+        ],
+      })
+    )
+    prismaMock.autoRule.findMany.mockResolvedValue([
+      {
+        id: 'cuid_rule_3',
+        pattern: '^goodwill',
+        isRegex: true,
+        categoryId: 'cuid_category_thrifting',
+        tagId: null,
+        priority: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ] as never)
+    prismaMock.category.findFirst.mockResolvedValue(mockCategory({ id: 'cuid_category_uncategorized', name: 'Uncategorized' }) as never)
+    prismaMock.transaction.upsert.mockResolvedValue({} as never)
+
+    await POST(makeRequest(ITEM_ID) as never)
+
+    expect(prismaMock.transaction.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ categoryId: 'cuid_category_thrifting' }),
       })
     )
   })

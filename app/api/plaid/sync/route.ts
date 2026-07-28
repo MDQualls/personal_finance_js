@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import type { RemovedTransaction, Transaction as PlaidTransaction } from 'plaid'
+import type { AutoRule } from '@prisma/client'
 import { authOptions } from '@/lib/auth'
 import { plaidClient } from '@/lib/plaid'
 import { prisma } from '@/lib/prisma'
@@ -34,12 +35,28 @@ function toLocalAmountCents(plaidAmount: number): number {
   return plaidAmount > 0 ? -cents : cents
 }
 
-async function resolveCategoryId(primary: string | undefined): Promise<string> {
+async function resolveCategoryId(
+  primary: string | undefined,
+  description: string,
+  autoRules: AutoRule[]
+): Promise<string> {
+  // Plaid's own suggested category, if any
   const mappedName = primary ? PLAID_CATEGORY_MAP[primary] : undefined
+  let plaidCategoryId: string | undefined
   if (mappedName) {
     const match = await prisma.category.findFirst({ where: { name: mappedName, isActive: true } })
-    if (match) return match.id
+    if (match) plaidCategoryId = match.id
   }
+
+  // User-defined auto-rules override Plaid's assumption
+  for (const rule of autoRules) {
+    const matches = rule.isRegex
+      ? new RegExp(rule.pattern, 'i').test(description)
+      : description.toLowerCase().includes(rule.pattern.toLowerCase())
+    if (matches) return rule.categoryId
+  }
+
+  if (plaidCategoryId) return plaidCategoryId
 
   const fallback = await prisma.category.findFirst({ where: { name: 'Uncategorized', isSystem: true } })
   if (!fallback) throw new Error('Uncategorized system category not found')
@@ -66,6 +83,7 @@ export async function POST(req: NextRequest) {
 
     const accessToken = decryptToken(item.accessToken)
     const merchantRules = await prisma.merchantRule.findMany()
+    const autoRules = await prisma.autoRule.findMany({ orderBy: { priority: 'asc' } })
 
     let cursor = item.lastCursor ?? undefined
     let added: PlaidTransaction[] = []
@@ -97,7 +115,7 @@ export async function POST(req: NextRequest) {
       if (!accountId) continue // not yet mapped to a local Account — skip until linked
 
       const description = normalizeDescription(sanitizeString(tx.merchant_name ?? tx.name), merchantRules)
-      const categoryId = await resolveCategoryId(tx.personal_finance_category?.primary)
+      const categoryId = await resolveCategoryId(tx.personal_finance_category?.primary, description, autoRules)
 
       await prisma.transaction.upsert({
         where: { plaidTransactionId: tx.transaction_id },
