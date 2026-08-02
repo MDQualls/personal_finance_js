@@ -9,6 +9,8 @@ import {
   isDueWithinDays,
   daysUntil,
   toISODateString,
+  utcMonthRange,
+  utcYearRange,
 } from './dates'
 
 describe('formatDisplay', () => {
@@ -187,5 +189,44 @@ describe('toISODateString', () => {
   it('returns date in YYYY-MM-DD format', () => {
     const result = toISODateString(new Date('2026-04-15T12:00:00Z'))
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})
+
+describe('utcMonthRange', () => {
+  it('returns UTC midnight on the 1st through the last instant of the month', () => {
+    const { from, to } = utcMonthRange(2026, 7)
+    expect(from.toISOString()).toBe('2026-07-01T00:00:00.000Z')
+    expect(to.toISOString()).toBe('2026-07-31T23:59:59.999Z')
+  })
+
+  it('is immune to the caller-local timezone the underlying Date object has no concept of', () => {
+    // Regression for a bug where a locally-constructed Date().toISOString() leaked
+    // the next month's first-of-month transactions into this month's boundary.
+    const { to } = utcMonthRange(2026, 7)
+    expect(to.getTime()).toBeLessThan(Date.parse('2026-08-01T00:00:00.000Z'))
+  })
+
+  it('handles February in a leap year', () => {
+    const { to } = utcMonthRange(2024, 2)
+    expect(to.toISOString()).toBe('2024-02-29T23:59:59.999Z')
+  })
+
+  it('handles February in a non-leap year', () => {
+    const { to } = utcMonthRange(2026, 2)
+    expect(to.toISOString()).toBe('2026-02-28T23:59:59.999Z')
+  })
+
+  it('handles December correctly (year does not roll over)', () => {
+    const { from, to } = utcMonthRange(2026, 12)
+    expect(from.toISOString()).toBe('2026-12-01T00:00:00.000Z')
+    expect(to.toISOString()).toBe('2026-12-31T23:59:59.999Z')
+  })
+})
+
+describe('utcYearRange', () => {
+  it('returns UTC midnight Jan 1 through the last instant of Dec 31', () => {
+    const { from, to } = utcYearRange(2026)
+    expect(from.toISOString()).toBe('2026-01-01T00:00:00.000Z')
+    expect(to.toISOString()).toBe('2026-12-31T23:59:59.999Z')
   })
 })

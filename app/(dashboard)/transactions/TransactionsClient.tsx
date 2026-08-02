@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { startOfMonth, endOfMonth } from 'date-fns'
 import { Plus, Upload, Download, Search, ArrowLeftRight, ClipboardList } from 'lucide-react'
+import { utcMonthRange, utcYearRange } from '@/lib/dates'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
@@ -53,14 +53,9 @@ export function TransactionsClient({ accounts, categories, tags, initialTab = 'a
       if (hideTransfers) params.set('excludeTransfers', 'true')
 
       if (yearFilter !== '') {
-        if (monthFilter !== '') {
-          const base = new Date(yearFilter, monthFilter - 1, 1)
-          params.set('from', startOfMonth(base).toISOString())
-          params.set('to', endOfMonth(base).toISOString())
-        } else {
-          params.set('from', new Date(yearFilter, 0, 1).toISOString())
-          params.set('to', new Date(yearFilter, 11, 31, 23, 59, 59, 999).toISOString())
-        }
+        const { from, to } = monthFilter !== '' ? utcMonthRange(yearFilter, monthFilter) : utcYearRange(yearFilter)
+        params.set('from', from.toISOString())
+        params.set('to', to.toISOString())
       }
 
       const res = await fetch(`/api/transactions?${params}`)

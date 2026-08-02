@@ -104,4 +104,21 @@ export function toISODateString(date: Date): string {
   return formatISO(date, { representation: 'date' })
 }
 
+// Transaction dates are calendar days stored as UTC midnight, not real moments in
+// time — so month/year filter boundaries must be built directly in UTC, never via
+// a local-timezone Date converted with .toISOString(). That conversion shifts the
+// boundary by the caller's UTC offset, leaking the neighboring month's first-of-month
+// transaction in (or pushing this month's out) for any non-UTC timezone.
+export function utcMonthRange(year: number, month: number): { from: Date; to: Date } {
+  const from = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0))
+  const to = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999))
+  return { from, to }
+}
+
+export function utcYearRange(year: number): { from: Date; to: Date } {
+  const from = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0))
+  const to = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999))
+  return { from, to }
+}
+
 export { parseISO, isAfter, isBefore, differenceInDays, format }
